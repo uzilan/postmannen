@@ -1,8 +1,8 @@
-# postmanen: workspace dropdown + collection list — design
+# postmannen: workspace dropdown + collection list — design
 
 ## Purpose & scope
 
-`postmanen` is a terminal UI for browsing Postman data, talking to Postman's
+`postmannen` is a terminal UI for browsing Postman data, talking to Postman's
 remote MCP server. Modeled directly on `~/dev/breui` (Kotlin + Lanterna +
 coroutines + MVVM), reusing its architecture, layering, and theming approach.
 
@@ -23,7 +23,7 @@ Mirrors breui's `build.gradle.kts` almost verbatim:
     coordinate).
   - Ktor HTTP client (`ktor-client-cio` or `ktor-client-java`) +
     `ktor-client-sse`, required by the SDK's `StreamableHttpClientTransport`.
-- `mainClass`: `postmanen.MainKt`.
+- `mainClass`: `postmannen.MainKt`.
 
 ## MCP integration layer
 
