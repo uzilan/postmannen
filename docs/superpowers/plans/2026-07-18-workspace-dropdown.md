@@ -90,7 +90,7 @@ rootProject.name = "postmannen"
 plugins {
     kotlin("jvm") version "2.4.0"
     kotlin("plugin.serialization") version "2.4.0"
-    id("io.github.goooler.shadow") version "8.1.8"
+    id("com.gradleup.shadow") version "9.6.0"
     application
 }
 
@@ -136,14 +136,18 @@ tasks.test {
 }
 ```
 
-This is the same plugin/version combination (`io.github.goooler.shadow`
-8.1.8 on Gradle 9.6.1) already proven working in `~/dev/breui` — verify with
-`cd ~/dev/breui && ./gradlew clean shadowJar` if in doubt; it builds clean
-there, so the same block works here. If dependency resolution fails on the
-Ktor coordinates specifically, check Maven Central for the latest available
-patch version of that artifact and update the version string — the exact
-patch number is not load-bearing, only that it resolves and all three Ktor
-artifacts stay on the same version.
+Note: breui uses the older `io.github.goooler.shadow:8.1.8` plugin, which
+builds `shadowJar` fine on Gradle 9.6.1 but breaks the plain `build`
+lifecycle task (`shadowDistTar`/`shadowDistZip` reference a `mainClassName`
+property Gradle 9 removed — breui's own CI never runs `build`, only
+`shadowJar` directly, so this was latent there too). Use
+`com.gradleup.shadow:9.6.0` instead — the actively maintained successor
+with native Gradle 9 support — so `./gradlew build` works cleanly here. If
+dependency resolution fails on the Ktor coordinates specifically, check
+Maven Central for the latest available patch version of that artifact and
+update the version string — the exact patch number is not load-bearing,
+only that it resolves and all three Ktor artifacts stay on the same
+version.
 
 - [ ] **Step 3: Create `.gitignore`**
 
