@@ -1,5 +1,7 @@
 package postmannen.ui
 
+import com.googlecode.lanterna.TextColor
+import com.googlecode.lanterna.gui2.AbstractListBox
 import com.googlecode.lanterna.gui2.ActionListBox
 import com.googlecode.lanterna.gui2.BasicWindow
 import com.googlecode.lanterna.gui2.BorderLayout
@@ -10,6 +12,7 @@ import com.googlecode.lanterna.gui2.Label
 import com.googlecode.lanterna.gui2.LinearLayout
 import com.googlecode.lanterna.gui2.MultiWindowTextGUI
 import com.googlecode.lanterna.gui2.Panel
+import com.googlecode.lanterna.gui2.TextGUIGraphics
 import com.googlecode.lanterna.gui2.Window
 import com.googlecode.lanterna.gui2.WindowListenerAdapter
 import com.googlecode.lanterna.input.KeyStroke
@@ -44,7 +47,7 @@ class App(
             }
             return super.handleKeyStroke(key)
         }
-    }
+    }.apply { setListItemRenderer(itemHighlightRenderer) }
 
     private val statusBar = StatusBar()
     private val hintLabel = Label("")
@@ -141,6 +144,7 @@ class App(
         val tabChanged = state.activeTab != lastActiveTab
         val selectionChanged = state.selectedEnvironmentIds != lastSelectedEnvironmentIds
         if (itemsChanged || tabChanged || selectionChanged) {
+            val previousIndex = itemListBox.selectedIndex
             lastCollections = state.collections
             lastEnvironments = state.environments
             lastActiveTab = state.activeTab
@@ -155,6 +159,9 @@ class App(
                 }
             }
             labels.forEach { label -> itemListBox.addItem(label) {} }
+            if (!tabChanged && labels.isNotEmpty()) {
+                itemListBox.selectedIndex = previousIndex.coerceIn(0, labels.size - 1)
+            }
         }
 
         hintLabel.text = if (state.activeTab == Tab.ENVIRONMENTS) {
@@ -179,5 +186,22 @@ class App(
         val collectionsLabel = if (active == Tab.COLLECTIONS) "[Collections]" else " Collections "
         val environmentsLabel = if (active == Tab.ENVIRONMENTS) "[Environments]" else " Environments "
         return " $collectionsLabel  $environmentsLabel"
+    }
+
+    companion object {
+        private val itemHighlightRenderer = object : AbstractListBox.ListItemRenderer<Runnable, ActionListBox>() {
+            override fun drawItem(graphics: TextGUIGraphics, lb: ActionListBox, index: Int, item: Runnable, selected: Boolean, focused: Boolean) {
+                val label = getLabel(lb, index, item)
+                val width = graphics.size.columns
+                val text = label.take(width).padEnd(width)
+                if (selected && focused) {
+                    graphics.setForegroundColor(TextColor.ANSI.BLACK)
+                    graphics.setBackgroundColor(TextColor.ANSI.GREEN)
+                    graphics.putString(0, 0, text)
+                } else {
+                    super.drawItem(graphics, lb, index, item, selected, focused)
+                }
+            }
+        }
     }
 }
