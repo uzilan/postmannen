@@ -10,13 +10,16 @@ import io.ktor.client.request.header
 import io.ktor.http.appendPathSegments
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import postmannen.model.Collection
 import postmannen.model.Workspace
 
 class PostmanApiServiceImpl(private val apiKey: String) : PostmanApiService {
 
     private val client = HttpClient(CIO) {
-        install(ContentNegotiation) { json() }
+        install(ContentNegotiation) {
+            json(Json { ignoreUnknownKeys = true })
+        }
         defaultRequest {
             url(BASE_URL)
             header("X-Api-Key", apiKey)
