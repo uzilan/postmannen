@@ -3,8 +3,9 @@
 ## Purpose & scope
 
 `postmannen` is a terminal UI for browsing Postman data, talking to Postman's
-remote MCP server. Modeled directly on `~/dev/breui` (Kotlin + Lanterna +
-coroutines + MVVM), reusing its architecture, layering, and theming approach.
+public REST API (`https://api.getpostman.com`). Modeled directly on
+`~/dev/breui` (Kotlin + Lanterna + coroutines + MVVM), reusing its
+architecture, layering, and theming approach.
 
 v1 scope: a workspace dropdown in the top-left driving a collection list panel.
 Selecting a workspace loads and displays its collections. No collection
@@ -18,60 +19,43 @@ Mirrors breui's `build.gradle.kts` almost verbatim:
   `application` plugin.
 - `kotlinx-coroutines-core` for the StateFlow/coroutine plumbing.
 - New dependencies breui doesn't have:
-  - `io.modelcontextprotocol:kotlin-sdk-client:0.14.0` — official Kotlin MCP
-    client SDK (confirmed present on Maven Central under this exact
-    coordinate).
-  - Ktor HTTP client (`ktor-client-cio` or `ktor-client-java`) +
-    `ktor-client-sse`, required by the SDK's `StreamableHttpClientTransport`.
+  - Ktor HTTP client (`ktor-client-cio`) + `ktor-client-content-negotiation`
+    + `ktor-serialization-kotlinx-json`, for calling the Postman REST API
+    and decoding its JSON responses.
 - `mainClass`: `postmannen.MainKt`.
 
-## MCP integration layer
+## Postman API integration layer
 
-`service/PostmanMcpService`:
+`service/PostmanApiService`:
 
 ```kotlin
-interface PostmanMcpService {
+interface PostmanApiService {
     suspend fun getWorkspaces(): Result<List<Workspace>>
     suspend fun getCollections(workspaceId: String): Result<List<Collection>>
 }
 ```
 
-`PostmanMcpServiceImpl`:
+`PostmanApiServiceImpl`:
 
-- Builds a Ktor `HttpClient` with `install(SSE)` and a default `Authorization:
-  Bearer $POSTMAN_API_KEY` header.
-- Connects an MCP `Client` over `StreamableHttpClientTransport` pointed at
-  `POSTMAN_MCP_URL` (env override, defaults to `https://mcp.postman.com/minimal`
-  — the real, already-configured Postman MCP endpoint).
-- `getWorkspaces()` calls the `getWorkspaces` tool with no arguments;
-  `getCollections(workspaceId)` calls the `getCollections` tool with
-  `{"workspace": workspaceId}`. Both tool names and their input schemas were
-  verified against the live server during design (not guessed).
-- Each tool call returns one `content` block of `type: "text"` containing a
-  markdown-formatted table (confirmed via live probe — the server does not
-  return structured JSON). The impl extracts that text and hands it to the
-  markdown table parser, then maps rows into domain models.
+- Builds a Ktor `HttpClient` (CIO engine) with `ContentNegotiation` +
+  `json()`, and a default `X-Api-Key: $POSTMAN_API_KEY` header (confirmed
+  header name/format from Postman's own API auth docs — not guessed).
+- Base URL is the fixed constant `https://api.getpostman.com` — Postman's
+  public API has one address, so no env-var override (no requested use case
+  for pointing at a different host).
+- `getWorkspaces()` calls `GET /workspaces`, decoding
+  `{"workspaces": [{"id", "name", "type"}]}` (confirmed shape from Postman's
+  API reference/community examples).
+- `getCollections(workspaceId)` calls `GET /workspaces/{workspaceId}`,
+  decoding `{"workspace": {..., "collections": [{"id", "name", "uid"}]}}`
+  and mapping each entry's `id`/`name` into a `Collection` (`uid` unused in
+  v1).
 
 Env vars:
 
 - `POSTMAN_API_KEY` — required. `Main` reads it before starting the screen;
   if unset, prints a clear message to stderr and exits 1. Never hardcoded,
   never logged.
-- `POSTMAN_MCP_URL` — optional, defaults to `https://mcp.postman.com/minimal`.
-
-## Markdown table parsing
-
-`util/MarkdownTable.kt`:
-
-```kotlin
-fun parseMarkdownTable(text: String): List<Map<String, String>>
-```
-
-Finds the `| header | ... |` line followed by a `|---|...|` separator line,
-then parses each subsequent `|`-delimited row until a blank line or end of
-input. Cell values are trimmed and HTML-unescaped (`&#39;`, `&quot;`, `&amp;`,
-etc. — the real server output includes these, confirmed via live probe).
-Pure function, no I/O — trivially unit-testable.
 
 ## Domain models
 
@@ -80,9 +64,7 @@ data class Workspace(val id: String, val name: String, val type: String)
 data class Collection(val id: String, val name: String)
 ```
 
-Built from parsed row maps in the service layer using the real column names
-observed live: `getWorkspaces` rows have `id`, `name`, `type`, ...;
-`getCollections` rows have `id`, `name`, `owner`, ...
+Built from the decoded JSON DTOs in the service layer.
 
 ## State & ViewModel
 
@@ -132,20 +114,16 @@ mutations via `update { copy(...) }`:
 
 - Missing/invalid `POSTMAN_API_KEY` → fail fast in `Main`, before the screen
   starts: stderr message, exit 1.
-- MCP call failures (network, tool error) → caught in `AppViewModel`,
+- API call failures (network, non-2xx) → caught in `AppViewModel`,
   surfaced via `statusMessage`; state's existing lists are preserved.
 
 ## Testing
 
-- `FakePostmanMcpService` — fixture-based fake, mirrors breui's
+- `FakePostmanApiService` — fixture-based fake, mirrors breui's
   `FakeBrewService`, used in `AppViewModelTest` via `runTest`.
-- `MarkdownTableParserTest` — unit tests using the literal fixture strings
-  captured from real `getWorkspaces`/`getCollections` responses during
-  design, so the parser is verified against actual server output rather than
-  a guessed format.
-- `PostmanMcpServiceImplTest` — one integration smoke test that calls the
-  real `getWorkspaces` tool against the live server, gated on `POSTMAN_API_KEY`
-  being set (mirrors breui's `BrewServiceImplTest` smoke test against real
-  `brew`).
+- `PostmanApiServiceImplTest` — one integration smoke test that calls the
+  real `getWorkspaces` endpoint against the live API, gated on
+  `POSTMAN_API_KEY` being set (mirrors breui's `BrewServiceImplTest` smoke
+  test against real `brew`).
 - UI layer (Lanterna panels) not tested — same rationale as breui, headless
   testing isn't practical.

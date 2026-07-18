@@ -3,34 +3,34 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the v1 `postmannen` TUI — a workspace dropdown in the top-left
-that drives a collection list panel, talking to Postman's remote MCP server.
+that drives a collection list panel, talking to Postman's public REST API.
 
 **Architecture:** Kotlin JVM + Lanterna TUI, MVVM with a single
 `MutableStateFlow<AppState>`, mirroring `~/dev/breui`'s layering exactly
 (service → viewmodel → ui, coroutine-collected state → `applyState()` →
-`gui.updateScreen()`). MCP access goes through a `PostmanMcpService`
-interface with a real (Ktor + MCP Kotlin SDK) and fake (fixture-based)
+`gui.updateScreen()`). API access goes through a `PostmanApiService`
+interface with a real (Ktor HTTP client) and fake (fixture-based)
 implementation, so the ViewModel is fully unit-testable without the network.
 
 **Tech Stack:** Kotlin JVM (toolchain 25), Lanterna 3.1.1, kotlinx-coroutines,
-`io.modelcontextprotocol:kotlin-sdk-client:0.14.0`, Ktor client
-(CIO engine + SSE plugin), JUnit5/kotlin-test.
+kotlinx-serialization-json, Ktor client (CIO engine + ContentNegotiation +
+kotlinx-json), JUnit5/kotlin-test.
 
 ## Global Constraints
 
 - Kotlin JVM toolchain 25, Kotlin plugin version 2.4.0 (matches breui).
 - `mainClass`: `postmannen.MainKt`.
-- MCP client SDK: `io.modelcontextprotocol:kotlin-sdk-client:0.14.0` (exact
-  coordinate, confirmed present on Maven Central).
-- Default MCP endpoint: `https://mcp.postman.com/minimal`, overridable via
-  `POSTMAN_MCP_URL` env var.
+- Postman REST API base URL (fixed constant, no env override):
+  `https://api.getpostman.com`.
+- Auth header: `X-Api-Key: $POSTMAN_API_KEY` (confirmed exact header name
+  from Postman's own API authentication docs).
 - `POSTMAN_API_KEY` env var is required; missing/blank → stderr message +
-  exit 1, checked in `Main` before the screen starts. Never hardcoded, never
-  logged.
-- Tool names/schemas (verified live, not guessed): `getWorkspaces()` (no
-  args) and `getCollections({"workspace": workspaceId})`.
-- Tool responses are one `text` content block containing a markdown table —
-  not structured JSON.
+  exit 1, checked in `Main` before the screen starts. Never hardcoded,
+  never logged.
+- `GET /workspaces` → `{"workspaces": [{"id", "name", "type"}]}`.
+- `GET /workspaces/{workspaceId}` → `{"workspace": {..., "collections":
+  [{"id", "name", "uid"}]}}` — map `id`/`name` into `Collection`, `uid`
+  unused in v1.
 - Single fixed theme `businessmachine`, set once in `Main`. No theme picker
   in v1. No collection drilldown, no request sending in v1.
 
@@ -42,24 +42,21 @@ implementation, so the ViewModel is fully unit-testable without the network.
   `gradlew.bat`, `.gitignore` — project scaffold, mirrors breui.
 - `src/main/kotlin/postmannen/Main.kt` — entry point: env check, terminal/gui
   setup, wiring, `App(...).run()`.
-- `src/main/kotlin/postmannen/util/MarkdownTable.kt` — pure markdown table
-  parser, no I/O.
 - `src/main/kotlin/postmannen/model/Workspace.kt` — `Workspace` data class.
 - `src/main/kotlin/postmannen/model/Collection.kt` — `Collection` data class.
 - `src/main/kotlin/postmannen/model/AppState.kt` — `AppState` data class.
-- `src/main/kotlin/postmannen/service/PostmanMcpService.kt` — service
+- `src/main/kotlin/postmannen/service/PostmanApiService.kt` — service
   interface.
-- `src/main/kotlin/postmannen/service/PostmanMcpServiceImpl.kt` — real MCP
-  client implementation (Ktor + MCP SDK).
+- `src/main/kotlin/postmannen/service/PostmanApiServiceImpl.kt` — real
+  implementation (Ktor client + kotlinx.serialization DTOs).
 - `src/main/kotlin/postmannen/viewmodel/AppViewModel.kt` — state holder,
   mutations, error handling.
 - `src/main/kotlin/postmannen/ui/StatusBar.kt` — ported from breui verbatim
   (package renamed).
 - `src/main/kotlin/postmannen/ui/App.kt` — root panel: dropdown (TOP),
   collection list (CENTER), status bar (BOTTOM).
-- `src/test/kotlin/postmannen/util/MarkdownTableParserTest.kt`
-- `src/test/kotlin/postmannen/service/FakePostmanMcpService.kt`
-- `src/test/kotlin/postmannen/service/PostmanMcpServiceImplTest.kt`
+- `src/test/kotlin/postmannen/service/FakePostmanApiService.kt`
+- `src/test/kotlin/postmannen/service/PostmanApiServiceImplTest.kt`
 - `src/test/kotlin/postmannen/viewmodel/AppViewModelTest.kt`
 
 ---
@@ -75,7 +72,7 @@ implementation, so the ViewModel is fully unit-testable without the network.
 - Create: `gradlew`
 - Create: `gradlew.bat`
 - Create: `src/main/kotlin/postmannen/Main.kt` (placeholder entry point,
-  replaced fully in Task 6)
+  replaced fully in Task 5)
 
 **Interfaces:**
 - Produces: a buildable Gradle project with `mainClass =
@@ -113,9 +110,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
-    implementation("io.modelcontextprotocol:kotlin-sdk-client:0.14.0")
-    implementation("io.ktor:ktor-client-cio:3.1.3")
-    implementation("io.ktor:ktor-client-sse:3.1.3")
+    implementation("io.ktor:ktor-client-cio:3.1.0")
+    implementation("io.ktor:ktor-client-content-negotiation:3.1.0")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:3.1.0")
 
     testImplementation("org.jetbrains.kotlin:kotlin-test:2.4.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
@@ -138,6 +135,15 @@ tasks.test {
     useJUnitPlatform()
 }
 ```
+
+This is the same plugin/version combination (`io.github.goooler.shadow`
+8.1.8 on Gradle 9.6.1) already proven working in `~/dev/breui` — verify with
+`cd ~/dev/breui && ./gradlew clean shadowJar` if in doubt; it builds clean
+there, so the same block works here. If dependency resolution fails on the
+Ktor coordinates specifically, check Maven Central for the latest available
+patch version of that artifact and update the version string — the exact
+patch number is not load-bearing, only that it resolves and all three Ktor
+artifacts stay on the same version.
 
 - [ ] **Step 3: Create `.gitignore`**
 
@@ -172,10 +178,11 @@ fun main() {
 - [ ] **Step 6: Verify the build works**
 
 Run: `./gradlew build`
-Expected: `BUILD SUCCESSFUL`. If dependency resolution fails on the Ktor or
-MCP SDK coordinates, check Maven Central for the latest available patch
-version of that artifact and update the version string — the exact patch
-number is not load-bearing, only that it resolves.
+Expected: `BUILD SUCCESSFUL`.
+
+Run: `./gradlew shadowJar`
+Expected: `BUILD SUCCESSFUL` (proves the shadow plugin is wired correctly
+on this Gradle/Kotlin version, matching breui's proven-working setup).
 
 - [ ] **Step 7: Commit**
 
@@ -186,180 +193,25 @@ git commit -m "chore: scaffold Kotlin/Lanterna project"
 
 ---
 
-### Task 2: Markdown table parser (TDD)
-
-**Files:**
-- Create: `src/main/kotlin/postmannen/util/MarkdownTable.kt`
-- Test: `src/test/kotlin/postmannen/util/MarkdownTableParserTest.kt`
-
-**Interfaces:**
-- Produces: `fun parseMarkdownTable(text: String): List<Map<String, String>>`
-  in package `postmannen.util` — consumed by `PostmanMcpServiceImpl` in
-  Task 5.
-
-- [ ] **Step 1: Write the failing tests**
-
-```kotlin
-package postmannen.util
-
-import kotlin.test.Test
-import kotlin.test.assertEquals
-
-class MarkdownTableParserTest {
-
-    @Test
-    fun `parses a simple two-row table`() {
-        val text = """
-            | id | name | type |
-            |---|---|---|
-            | ws-1 | Engineering | team |
-            | ws-2 | Personal | personal |
-        """.trimIndent()
-
-        val rows = parseMarkdownTable(text)
-
-        assertEquals(
-            listOf(
-                mapOf("id" to "ws-1", "name" to "Engineering", "type" to "team"),
-                mapOf("id" to "ws-2", "name" to "Personal", "type" to "personal")
-            ),
-            rows
-        )
-    }
-
-    @Test
-    fun `unescapes html entities in cell values`() {
-        val text = """
-            | id | name |
-            |---|---|
-            | col-1 | Bob&#39;s Requests |
-            | col-2 | Foo &quot;Bar&quot; &amp; Baz |
-        """.trimIndent()
-
-        val rows = parseMarkdownTable(text)
-
-        assertEquals("Bob's Requests", rows[0]["name"])
-        assertEquals("Foo \"Bar\" & Baz", rows[1]["name"])
-    }
-
-    @Test
-    fun `stops at the first blank line after the table`() {
-        val text = """
-            | id | name |
-            |---|---|
-            | ws-1 | Engineering |
-
-            Some trailing prose that is not part of the table.
-        """.trimIndent()
-
-        val rows = parseMarkdownTable(text)
-
-        assertEquals(1, rows.size)
-        assertEquals("ws-1", rows[0]["id"])
-    }
-
-    @Test
-    fun `trims whitespace around cell values`() {
-        val text = """
-            | id   |   name |
-            |---|---|
-            |  ws-1  |  Engineering   |
-        """.trimIndent()
-
-        val rows = parseMarkdownTable(text)
-
-        assertEquals(mapOf("id" to "ws-1", "name" to "Engineering"), rows[0])
-    }
-
-    @Test
-    fun `returns empty list when no table is present`() {
-        assertEquals(emptyList(), parseMarkdownTable("no table here"))
-    }
-}
-```
-
-- [ ] **Step 2: Run tests to verify they fail**
-
-Run: `./gradlew test --tests "postmannen.util.MarkdownTableParserTest"`
-Expected: FAIL (compile error — `parseMarkdownTable` not defined)
-
-- [ ] **Step 3: Write the implementation**
-
-```kotlin
-package postmannen.util
-
-fun parseMarkdownTable(text: String): List<Map<String, String>> {
-    val lines = text.lines()
-    val headerIndex = lines.indexOfFirst { it.trimStart().startsWith("|") }
-    if (headerIndex == -1 || headerIndex + 1 >= lines.size) return emptyList()
-    val separator = lines[headerIndex + 1]
-    if (!isSeparatorLine(separator)) return emptyList()
-
-    val headers = splitRow(lines[headerIndex])
-    val rows = mutableListOf<Map<String, String>>()
-
-    for (i in headerIndex + 2 until lines.size) {
-        val line = lines[i]
-        if (line.isBlank()) break
-        if (!line.trimStart().startsWith("|")) break
-        val cells = splitRow(line)
-        rows.add(headers.zip(cells).toMap())
-    }
-
-    return rows
-}
-
-private fun isSeparatorLine(line: String): Boolean {
-    val trimmed = line.trim()
-    if (!trimmed.startsWith("|")) return false
-    return trimmed.trim('|').split("|").all { it.trim().all { c -> c == '-' || c == ':' } }
-}
-
-private fun splitRow(line: String): List<String> =
-    line.trim().trim('|').split("|").map { unescapeHtml(it.trim()) }
-
-private fun unescapeHtml(text: String): String =
-    text
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-```
-
-- [ ] **Step 4: Run tests to verify they pass**
-
-Run: `./gradlew test --tests "postmannen.util.MarkdownTableParserTest"`
-Expected: PASS (5 tests)
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add src/main/kotlin/postmannen/util/MarkdownTable.kt src/test/kotlin/postmannen/util/MarkdownTableParserTest.kt
-git commit -m "feat: add markdown table parser"
-```
-
----
-
-### Task 3: Domain models, service interface, and fake service
+### Task 2: Domain models, service interface, and fake service
 
 **Files:**
 - Create: `src/main/kotlin/postmannen/model/Workspace.kt`
 - Create: `src/main/kotlin/postmannen/model/Collection.kt`
-- Create: `src/main/kotlin/postmannen/service/PostmanMcpService.kt`
-- Create: `src/test/kotlin/postmannen/service/FakePostmanMcpService.kt`
+- Create: `src/main/kotlin/postmannen/service/PostmanApiService.kt`
+- Create: `src/test/kotlin/postmannen/service/FakePostmanApiService.kt`
 
 **Interfaces:**
 - Consumes: nothing from earlier tasks.
 - Produces: `data class Workspace(val id: String, val name: String, val
   type: String)`; `data class Collection(val id: String, val name:
-  String)`; `interface PostmanMcpService` with `suspend fun
+  String)`; `interface PostmanApiService` with `suspend fun
   getWorkspaces(): Result<List<Workspace>>` and `suspend fun
   getCollections(workspaceId: String): Result<List<Collection>>`;
-  `class FakePostmanMcpService` with mutable `workspacesResult` /
+  `class FakePostmanApiService` with mutable `workspacesResult` /
   `collectionsResult` fields and a `FIXTURE_WORKSPACES` /
   `FIXTURE_COLLECTIONS` companion — consumed by `AppViewModelTest` in
-  Task 4.
+  Task 3.
 
 - [ ] **Step 1: Create the domain models**
 
@@ -382,13 +234,13 @@ data class Collection(val id: String, val name: String)
 - [ ] **Step 2: Create the service interface**
 
 ```kotlin
-// src/main/kotlin/postmannen/service/PostmanMcpService.kt
+// src/main/kotlin/postmannen/service/PostmanApiService.kt
 package postmannen.service
 
 import postmannen.model.Collection
 import postmannen.model.Workspace
 
-interface PostmanMcpService {
+interface PostmanApiService {
     suspend fun getWorkspaces(): Result<List<Workspace>>
     suspend fun getCollections(workspaceId: String): Result<List<Collection>>
 }
@@ -397,13 +249,13 @@ interface PostmanMcpService {
 - [ ] **Step 3: Create the fake service**
 
 ```kotlin
-// src/test/kotlin/postmannen/service/FakePostmanMcpService.kt
+// src/test/kotlin/postmannen/service/FakePostmanApiService.kt
 package postmannen.service
 
 import postmannen.model.Collection
 import postmannen.model.Workspace
 
-class FakePostmanMcpService : PostmanMcpService {
+class FakePostmanApiService : PostmanApiService {
     var workspacesResult: Result<List<Workspace>> = Result.success(FIXTURE_WORKSPACES)
     var collectionsResult: Result<List<Collection>> = Result.success(FIXTURE_COLLECTIONS)
     var lastRequestedWorkspaceId: String? = null
@@ -436,13 +288,13 @@ Expected: `BUILD SUCCESSFUL`
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main/kotlin/postmannen/model src/main/kotlin/postmannen/service/PostmanMcpService.kt src/test/kotlin/postmannen/service/FakePostmanMcpService.kt
+git add src/main/kotlin/postmannen/model src/main/kotlin/postmannen/service/PostmanApiService.kt src/test/kotlin/postmannen/service/FakePostmanApiService.kt
 git commit -m "feat: add domain models, service interface, and fake service"
 ```
 
 ---
 
-### Task 4: AppState + AppViewModel (TDD)
+### Task 3: AppState + AppViewModel (TDD)
 
 **Files:**
 - Create: `src/main/kotlin/postmannen/model/AppState.kt`
@@ -450,12 +302,12 @@ git commit -m "feat: add domain models, service interface, and fake service"
 - Test: `src/test/kotlin/postmannen/viewmodel/AppViewModelTest.kt`
 
 **Interfaces:**
-- Consumes: `PostmanMcpService` (Task 3), `FakePostmanMcpService` (Task 3).
-- Produces: `class AppViewModel(service: PostmanMcpService, scope:
+- Consumes: `PostmanApiService` (Task 2), `FakePostmanApiService` (Task 2).
+- Produces: `class AppViewModel(service: PostmanApiService, scope:
   CoroutineScope)` with `val state: StateFlow<AppState>`, `fun
   loadWorkspaces()`, `fun selectWorkspace(index: Int)`, `fun
-  loadCollections(workspaceId: String)` — consumed by `App` (Task 6) and
-  `Main` (Task 6).
+  loadCollections(workspaceId: String)` — consumed by `App` (Task 5) and
+  `Main` (Task 5).
 
 - [ ] **Step 1: Create `AppState`**
 
@@ -482,7 +334,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import postmannen.service.FakePostmanMcpService
+import postmannen.service.FakePostmanApiService
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -493,16 +345,16 @@ class AppViewModelTest {
 
     @Test
     fun `loadWorkspaces sets workspaces and clears loading`() = runTest {
-        val vm = AppViewModel(FakePostmanMcpService(), this)
+        val vm = AppViewModel(FakePostmanApiService(), this)
         vm.loadWorkspaces()
         advanceUntilIdle()
-        assertEquals(FakePostmanMcpService.FIXTURE_WORKSPACES, vm.state.value.workspaces)
+        assertEquals(FakePostmanApiService.FIXTURE_WORKSPACES, vm.state.value.workspaces)
         assertFalse(vm.state.value.loading)
     }
 
     @Test
     fun `loadWorkspaces on failure sets status message and preserves existing list`() = runTest {
-        val fake = FakePostmanMcpService()
+        val fake = FakePostmanApiService()
         val vm = AppViewModel(fake, this)
         vm.loadWorkspaces()
         advanceUntilIdle()
@@ -510,22 +362,22 @@ class AppViewModelTest {
         vm.loadWorkspaces()
         advanceUntilIdle()
         assertTrue(vm.state.value.statusMessage.contains("network error"))
-        assertEquals(FakePostmanMcpService.FIXTURE_WORKSPACES, vm.state.value.workspaces)
+        assertEquals(FakePostmanApiService.FIXTURE_WORKSPACES, vm.state.value.workspaces)
     }
 
     @Test
     fun `loadWorkspaces triggers loadCollections for the first workspace`() = runTest {
-        val fake = FakePostmanMcpService()
+        val fake = FakePostmanApiService()
         val vm = AppViewModel(fake, this)
         vm.loadWorkspaces()
         advanceUntilIdle()
         assertEquals("ws-1", fake.lastRequestedWorkspaceId)
-        assertEquals(FakePostmanMcpService.FIXTURE_COLLECTIONS, vm.state.value.collections)
+        assertEquals(FakePostmanApiService.FIXTURE_COLLECTIONS, vm.state.value.collections)
     }
 
     @Test
     fun `loadWorkspaces with empty list does not trigger loadCollections`() = runTest {
-        val fake = FakePostmanMcpService().apply { workspacesResult = Result.success(emptyList()) }
+        val fake = FakePostmanApiService().apply { workspacesResult = Result.success(emptyList()) }
         val vm = AppViewModel(fake, this)
         vm.loadWorkspaces()
         advanceUntilIdle()
@@ -534,7 +386,7 @@ class AppViewModelTest {
 
     @Test
     fun `selectWorkspace updates index and loads its collections`() = runTest {
-        val fake = FakePostmanMcpService()
+        val fake = FakePostmanApiService()
         val vm = AppViewModel(fake, this)
         vm.loadWorkspaces()
         advanceUntilIdle()
@@ -546,7 +398,7 @@ class AppViewModelTest {
 
     @Test
     fun `loadCollections on failure sets status message and preserves existing list`() = runTest {
-        val fake = FakePostmanMcpService()
+        val fake = FakePostmanApiService()
         val vm = AppViewModel(fake, this)
         vm.loadWorkspaces()
         advanceUntilIdle()
@@ -554,12 +406,12 @@ class AppViewModelTest {
         vm.loadCollections("ws-1")
         advanceUntilIdle()
         assertTrue(vm.state.value.statusMessage.contains("tool error"))
-        assertEquals(FakePostmanMcpService.FIXTURE_COLLECTIONS, vm.state.value.collections)
+        assertEquals(FakePostmanApiService.FIXTURE_COLLECTIONS, vm.state.value.collections)
     }
 
     @Test
     fun `loadCollections sets loading true then false around the call`() = runTest {
-        val fake = FakePostmanMcpService()
+        val fake = FakePostmanApiService()
         val vm = AppViewModel(fake, this)
         vm.loadCollections("ws-1")
         runCurrent()
@@ -587,10 +439,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import postmannen.model.AppState
-import postmannen.service.PostmanMcpService
+import postmannen.service.PostmanApiService
 
 class AppViewModel(
-    private val service: PostmanMcpService,
+    private val service: PostmanApiService,
     private val scope: CoroutineScope
 ) {
     private val _state = MutableStateFlow(AppState())
@@ -647,104 +499,85 @@ git commit -m "feat: add AppState and AppViewModel"
 
 ---
 
-### Task 5: Real MCP service implementation
+### Task 4: Real Postman API service implementation
 
 **Files:**
-- Create: `src/main/kotlin/postmannen/service/PostmanMcpServiceImpl.kt`
-- Test: `src/test/kotlin/postmannen/service/PostmanMcpServiceImplTest.kt`
+- Create: `src/main/kotlin/postmannen/service/PostmanApiServiceImpl.kt`
+- Test: `src/test/kotlin/postmannen/service/PostmanApiServiceImplTest.kt`
 
 **Interfaces:**
-- Consumes: `PostmanMcpService` (Task 3), `parseMarkdownTable` (Task 2),
-  `Workspace`/`Collection` (Task 3).
-- Produces: `class PostmanMcpServiceImpl(apiKey: String, mcpUrl: String =
-  "https://mcp.postman.com/minimal") : PostmanMcpService` — consumed by
-  `Main` (Task 6).
+- Consumes: `PostmanApiService` (Task 2), `Workspace`/`Collection`
+  (Task 2).
+- Produces: `class PostmanApiServiceImpl(apiKey: String) :
+  PostmanApiService`, with a public `companion object { const val
+  BASE_URL = "https://api.getpostman.com" }` — consumed by `Main`
+  (Task 5).
 
 - [ ] **Step 1: Write the implementation**
 
 ```kotlin
-// src/main/kotlin/postmannen/service/PostmanMcpServiceImpl.kt
+// src/main/kotlin/postmannen/service/PostmanApiServiceImpl.kt
 package postmannen.service
 
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.sse.SSE
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.request.get
 import io.ktor.client.request.header
-import io.modelcontextprotocol.kotlin.sdk.CallToolRequest
-import io.modelcontextprotocol.kotlin.sdk.Implementation
-import io.modelcontextprotocol.kotlin.sdk.TextContent
-import io.modelcontextprotocol.kotlin.sdk.client.Client
-import io.modelcontextprotocol.kotlin.sdk.client.StreamableHttpClientTransport
-import kotlinx.serialization.json.JsonPrimitive
+import io.ktor.client.call.body
+import io.ktor.http.appendPathSegments
+import io.ktor.serialization.kotlinx.json.json
+import kotlinx.serialization.Serializable
 import postmannen.model.Collection
 import postmannen.model.Workspace
-import postmannen.util.parseMarkdownTable
 
-class PostmanMcpServiceImpl(
-    private val apiKey: String,
-    private val mcpUrl: String = DEFAULT_MCP_URL
-) : PostmanMcpService {
+class PostmanApiServiceImpl(private val apiKey: String) : PostmanApiService {
+
+    private val client = HttpClient(CIO) {
+        install(ContentNegotiation) { json() }
+        defaultRequest {
+            url(BASE_URL)
+            header("X-Api-Key", apiKey)
+        }
+    }
 
     override suspend fun getWorkspaces(): Result<List<Workspace>> = runCatching {
-        val rows = callToolForRows("getWorkspaces", emptyMap())
-        rows.map { row ->
-            Workspace(
-                id = row.getValue("id"),
-                name = row.getValue("name"),
-                type = row.getValue("type")
-            )
-        }
+        val response: WorkspacesResponse = client.get { url { appendPathSegments("workspaces") } }.body()
+        response.workspaces.map { Workspace(id = it.id, name = it.name, type = it.type) }
     }
 
     override suspend fun getCollections(workspaceId: String): Result<List<Collection>> = runCatching {
-        val rows = callToolForRows("getCollections", mapOf("workspace" to workspaceId))
-        rows.map { row ->
-            Collection(
-                id = row.getValue("id"),
-                name = row.getValue("name")
-            )
-        }
-    }
-
-    private suspend fun callToolForRows(toolName: String, args: Map<String, String>): List<Map<String, String>> {
-        val httpClient = HttpClient(CIO) {
-            install(SSE)
-            defaultRequest {
-                header("Authorization", "Bearer $apiKey")
-            }
-        }
-        val client = Client(clientInfo = Implementation(name = "postmannen", version = "0.1.0"))
-        val transport = StreamableHttpClientTransport(url = mcpUrl, client = httpClient)
-        try {
-            client.connect(transport)
-            val result = client.callTool(
-                CallToolRequest(
-                    name = toolName,
-                    arguments = args.mapValues { JsonPrimitive(it.value) }
-                )
-            )
-            val text = result?.content
-                ?.filterIsInstance<TextContent>()
-                ?.firstOrNull()
-                ?.text
-                ?: error("Empty response from tool $toolName")
-            return parseMarkdownTable(text)
-        } finally {
-            client.close()
-            httpClient.close()
-        }
+        val response: WorkspaceDetailResponse =
+            client.get { url { appendPathSegments("workspaces", workspaceId) } }.body()
+        response.workspace.collections.map { Collection(id = it.id, name = it.name) }
     }
 
     companion object {
-        const val DEFAULT_MCP_URL = "https://mcp.postman.com/minimal"
+        const val BASE_URL = "https://api.getpostman.com"
     }
 }
+
+@Serializable
+private data class WorkspacesResponse(val workspaces: List<WorkspaceDto>)
+
+@Serializable
+private data class WorkspaceDto(val id: String, val name: String, val type: String)
+
+@Serializable
+private data class WorkspaceDetailResponse(val workspace: WorkspaceDetailDto)
+
+@Serializable
+private data class WorkspaceDetailDto(val id: String, val name: String, val collections: List<CollectionDto> = emptyList())
+
+@Serializable
+private data class CollectionDto(val id: String, val name: String, val uid: String)
 ```
 
 - [ ] **Step 2: Write the integration smoke test**
 
 ```kotlin
-// src/test/kotlin/postmannen/service/PostmanMcpServiceImplTest.kt
+// src/test/kotlin/postmannen/service/PostmanApiServiceImplTest.kt
 package postmannen.service
 
 import kotlinx.coroutines.test.runTest
@@ -754,14 +587,14 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 @Tag("integration")
-class PostmanMcpServiceImplTest {
+class PostmanApiServiceImplTest {
 
     @Test
     fun `getWorkspaces returns at least one workspace with a name`() = runTest {
         val apiKey = System.getenv("POSTMAN_API_KEY")
         assumeTrue(!apiKey.isNullOrBlank(), "POSTMAN_API_KEY not set, skipping integration test")
 
-        val service = PostmanMcpServiceImpl(apiKey)
+        val service = PostmanApiServiceImpl(apiKey)
         val result = service.getWorkspaces()
 
         assertTrue(result.isSuccess, "Expected success but got: ${result.exceptionOrNull()?.message}")
@@ -774,39 +607,32 @@ class PostmanMcpServiceImplTest {
 
 - [ ] **Step 3: Verify it compiles and the unit-test suite still passes**
 
-Run: `./gradlew build -x test && ./gradlew test --tests "postmannen.*" -PexcludeTags=integration`
-
-If the project has no tag-exclusion wired up yet, it's fine to run
-`./gradlew test` directly — the integration test self-skips via
-`assumeTrue` when `POSTMAN_API_KEY` is unset, so it reports as skipped, not
-failed, in a normal dev environment.
-
-Expected: `BUILD SUCCESSFUL`, `PostmanMcpServiceImplTest` shown as skipped.
+Run: `./gradlew build`
+Expected: `BUILD SUCCESSFUL`, `PostmanApiServiceImplTest` shown as skipped
+(it self-skips via `assumeTrue` when `POSTMAN_API_KEY` is unset — reports
+as skipped, not failed, in a normal dev environment).
 
 If `POSTMAN_API_KEY` is set in your environment, expect it to pass for
 real:
 
-Run: `POSTMAN_API_KEY=$POSTMAN_API_KEY ./gradlew test --tests "postmannen.service.PostmanMcpServiceImplTest"`
+Run: `POSTMAN_API_KEY=$POSTMAN_API_KEY ./gradlew test --tests "postmannen.service.PostmanApiServiceImplTest"`
 Expected: PASS
 
-If the MCP SDK's actual class/method names differ from what's used above
-(`Client`, `StreamableHttpClientTransport`, `CallToolRequest`,
-`TextContent`, `Implementation`), fix the imports/calls to match the real
-API surface from `io.modelcontextprotocol:kotlin-sdk-client:0.14.0` until
-this compiles — the tool names, argument shape (`{"workspace":
-workspaceId}`), and text-content response format are the parts that were
-verified live and must not change.
+If Ktor's client API surface differs slightly from what's used above
+(e.g. `appendPathSegments` import location), fix the imports/calls until
+this compiles — the base URL, header name, and JSON response shapes are
+the parts that were verified against Postman's docs and must not change.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/main/kotlin/postmannen/service/PostmanMcpServiceImpl.kt src/test/kotlin/postmannen/service/PostmanMcpServiceImplTest.kt
-git commit -m "feat: add real PostmanMcpService implementation over MCP"
+git add src/main/kotlin/postmannen/service/PostmanApiServiceImpl.kt src/test/kotlin/postmannen/service/PostmanApiServiceImplTest.kt
+git commit -m "feat: add real PostmanApiService implementation over the Postman REST API"
 ```
 
 ---
 
-### Task 6: UI layer + Main wiring
+### Task 5: UI layer + Main wiring
 
 **Files:**
 - Create: `src/main/kotlin/postmannen/ui/StatusBar.kt`
@@ -815,8 +641,8 @@ git commit -m "feat: add real PostmanMcpService implementation over MCP"
   Task 1)
 
 **Interfaces:**
-- Consumes: `AppViewModel` (Task 4), `PostmanMcpServiceImpl` (Task 5),
-  `Workspace`/`Collection` (Task 3).
+- Consumes: `AppViewModel` (Task 3), `PostmanApiServiceImpl` (Task 4),
+  `Workspace`/`Collection` (Task 2).
 - Produces: a runnable TUI. Terminal entry point only — no downstream
   consumers.
 
@@ -954,7 +780,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
-import postmannen.service.PostmanMcpServiceImpl
+import postmannen.service.PostmanApiServiceImpl
 import postmannen.ui.App
 import postmannen.viewmodel.AppViewModel
 import kotlin.system.exitProcess
@@ -965,8 +791,6 @@ fun main() = runBlocking {
         System.err.println("POSTMAN_API_KEY environment variable is required.")
         exitProcess(1)
     }
-    val mcpUrl = System.getenv("POSTMAN_MCP_URL")?.takeIf { it.isNotBlank() }
-        ?: PostmanMcpServiceImpl.DEFAULT_MCP_URL
 
     val terminal = DefaultTerminalFactory().createTerminal()
     val screen = TerminalScreen(terminal)
@@ -975,7 +799,7 @@ fun main() = runBlocking {
     gui.setTheme(LanternaThemes.getRegisteredTheme("businessmachine"))
 
     val scope = CoroutineScope(Dispatchers.Default)
-    val viewModel = AppViewModel(PostmanMcpServiceImpl(apiKey, mcpUrl), scope)
+    val viewModel = AppViewModel(PostmanApiServiceImpl(apiKey), scope)
 
     viewModel.loadWorkspaces()
 
@@ -1011,13 +835,16 @@ git commit -m "feat: wire up workspace dropdown and collection list UI"
 
 ## Self-Review Notes
 
-- Spec coverage: stack/build setup (Task 1), MCP service + markdown
-  parsing + models (Tasks 2, 3, 5), state/viewmodel (Task 4), UI layer
-  (Task 6), error handling (Task 4 tests + Task 5), testing strategy (all
-  tasks include their prescribed test file) — every section of the spec
-  maps to a task.
-- The spec's fixture strings for `MarkdownTableParserTest` were described
-  as "captured from real server responses during design" but the actual
-  captured text isn't present in the spec document — Task 2's fixtures
-  were authored to match the described shape (columns, HTML entities)
-  since the literal captured strings weren't available to copy in.
+- Spec coverage: stack/build setup (Task 1), API service + models
+  (Tasks 2, 4), state/viewmodel (Task 3), UI layer (Task 5), error
+  handling (Task 3 tests + Task 4), testing strategy (all tasks include
+  their prescribed test file) — every section of the revised (REST API)
+  spec maps to a task.
+- Revision history: the original plan used Postman's remote MCP server
+  (`kotlin-sdk-client` + markdown-table parsing of tool responses). That
+  approach was reconsidered before implementation began — fragile
+  markdown-table parsing for zero real benefit over calling the public
+  REST API directly — and this plan replaces it. `getWorkspaces`/
+  `getCollections` tool-shaped access is now `GET /workspaces` /
+  `GET /workspaces/{id}` REST calls; the markdown parser task is dropped
+  entirely.
