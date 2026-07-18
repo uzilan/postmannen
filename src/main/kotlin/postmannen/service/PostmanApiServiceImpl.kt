@@ -12,6 +12,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import postmannen.model.Collection
+import postmannen.model.Environment
 import postmannen.model.Workspace
 
 class PostmanApiServiceImpl(private val apiKey: String) : PostmanApiService {
@@ -37,6 +38,17 @@ class PostmanApiServiceImpl(private val apiKey: String) : PostmanApiService {
         response.workspace.collections.map { Collection(id = it.id, name = it.name) }
     }
 
+    override suspend fun getEnvironments(workspaceId: String): Result<List<Environment>> = runCatching {
+        val response: EnvironmentsResponse =
+            client.get {
+                url {
+                    appendPathSegments("environments")
+                    parameters.append("workspace", workspaceId)
+                }
+            }.body()
+        response.environments.map { Environment(id = it.id, name = it.name) }
+    }
+
     companion object {
         const val BASE_URL = "https://api.getpostman.com"
     }
@@ -56,3 +68,9 @@ private data class WorkspaceDetailDto(val id: String, val name: String, val coll
 
 @Serializable
 private data class CollectionDto(val id: String, val name: String, val uid: String)
+
+@Serializable
+private data class EnvironmentsResponse(val environments: List<EnvironmentDto>)
+
+@Serializable
+private data class EnvironmentDto(val id: String, val name: String, val uid: String)
