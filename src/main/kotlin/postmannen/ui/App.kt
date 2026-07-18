@@ -164,10 +164,10 @@ class App(
             }
         }
 
-        hintLabel.text = if (state.activeTab == Tab.ENVIRONMENTS) {
-            "  [space] select  [c] compare (${state.selectedEnvironmentIds.size})  [←][→] tabs  q-quit"
-        } else {
-            "  [←][→] tabs  q-quit"
+        hintLabel.text = when {
+            state.comparisonVisible -> "  [esc] close"
+            state.activeTab == Tab.ENVIRONMENTS -> "  [space] select  [c] compare (${state.selectedEnvironmentIds.size})  [←][→] tabs  q-quit"
+            else -> "  [←][→] tabs  q-quit"
         }
 
         statusBar.setText(if (state.loading) "Loading..." else state.statusMessage)
