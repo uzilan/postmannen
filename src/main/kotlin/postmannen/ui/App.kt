@@ -5,6 +5,7 @@ import com.googlecode.lanterna.gui2.BasicWindow
 import com.googlecode.lanterna.gui2.BorderLayout
 import com.googlecode.lanterna.gui2.Borders
 import com.googlecode.lanterna.gui2.Direction
+import com.googlecode.lanterna.gui2.Interactable
 import com.googlecode.lanterna.gui2.Label
 import com.googlecode.lanterna.gui2.LinearLayout
 import com.googlecode.lanterna.gui2.MultiWindowTextGUI
@@ -32,9 +33,23 @@ class App(
 ) {
     private val workspaceDropdown = WorkspaceDropdown()
     private val tabBar = Label("")
-    private val itemListBox = ActionListBox()
+
+    @Volatile private var onSpaceKey: (() -> Unit)? = null
+
+    private val itemListBox = object : ActionListBox() {
+        override fun handleKeyStroke(key: KeyStroke): Interactable.Result {
+            if (key.keyType == KeyType.Character && key.character == ' ') {
+                onSpaceKey?.invoke()
+                return Interactable.Result.HANDLED
+            }
+            return super.handleKeyStroke(key)
+        }
+    }
+
     private val statusBar = StatusBar()
+    private val hintLabel = Label("")
     private val window = BasicWindow("postmannen")
+    private var comparisonWindow: ComparisonOverlay? = null
 
     fun run() {
         window.setHints(setOf(Window.Hint.FULL_SCREEN, Window.Hint.NO_DECORATIONS))
@@ -49,7 +64,7 @@ class App(
 
         val bottomPanel = Panel(LinearLayout(Direction.VERTICAL))
         bottomPanel.addComponent(statusBar)
-        bottomPanel.addComponent(Label("  [←][→] tabs  q-quit"))
+        bottomPanel.addComponent(hintLabel)
         root.addComponent(bottomPanel, BorderLayout.Location.BOTTOM)
 
         window.component = root
@@ -58,6 +73,15 @@ class App(
         workspaceDropdown.addListener { selectedIndex, _, changedByUserInteraction ->
             if (changedByUserInteraction && !applyingState) {
                 viewModel.selectWorkspace(selectedIndex)
+            }
+        }
+
+        onSpaceKey = {
+            val state = viewModel.state.value
+            if (state.activeTab == Tab.ENVIRONMENTS) {
+                state.environments.getOrNull(itemListBox.selectedIndex)?.let {
+                    viewModel.toggleEnvironmentSelection(it.id)
+                }
             }
         }
 
@@ -71,6 +95,10 @@ class App(
                     keyStroke.keyType == KeyType.ArrowLeft || keyStroke.keyType == KeyType.ArrowRight -> {
                         val next = if (viewModel.state.value.activeTab == Tab.COLLECTIONS) Tab.ENVIRONMENTS else Tab.COLLECTIONS
                         viewModel.setActiveTab(next)
+                        hasBeenHandled.set(true)
+                    }
+                    keyStroke.keyType == KeyType.Character && keyStroke.character == 'c' && viewModel.state.value.activeTab == Tab.ENVIRONMENTS -> {
+                        viewModel.openComparison()
                         hasBeenHandled.set(true)
                     }
                 }
@@ -95,6 +123,7 @@ class App(
     private var lastCollections: List<Collection> = emptyList()
     private var lastEnvironments: List<Environment> = emptyList()
     private var lastActiveTab: Tab? = null
+    private var lastSelectedEnvironmentIds: Set<String> = emptySet()
 
     private fun applyState(state: AppState) {
         if (state.workspaces != lastWorkspaces) {
@@ -110,20 +139,40 @@ class App(
 
         val itemsChanged = state.collections != lastCollections || state.environments != lastEnvironments
         val tabChanged = state.activeTab != lastActiveTab
-        if (itemsChanged || tabChanged) {
+        val selectionChanged = state.selectedEnvironmentIds != lastSelectedEnvironmentIds
+        if (itemsChanged || tabChanged || selectionChanged) {
             lastCollections = state.collections
             lastEnvironments = state.environments
             lastActiveTab = state.activeTab
+            lastSelectedEnvironmentIds = state.selectedEnvironmentIds
             itemListBox.clearItems()
-            val names = if (state.activeTab == Tab.COLLECTIONS) {
+            val labels = if (state.activeTab == Tab.COLLECTIONS) {
                 state.collections.map { it.name }
             } else {
-                state.environments.map { it.name }
+                state.environments.map { env ->
+                    val checkbox = if (env.id in state.selectedEnvironmentIds) "[x]" else "[ ]"
+                    "$checkbox ${env.name}"
+                }
             }
-            names.forEach { name -> itemListBox.addItem(name) {} }
+            labels.forEach { label -> itemListBox.addItem(label) {} }
+        }
+
+        hintLabel.text = if (state.activeTab == Tab.ENVIRONMENTS) {
+            "  [space] select  [c] compare (${state.selectedEnvironmentIds.size})  [←][→] tabs  q-quit"
+        } else {
+            "  [←][→] tabs  q-quit"
         }
 
         statusBar.setText(if (state.loading) "Loading..." else state.statusMessage)
+
+        if (state.comparisonVisible && comparisonWindow == null) {
+            val win = ComparisonOverlay(state.comparisonDetails) { viewModel.closeComparison() }
+            comparisonWindow = win
+            gui.addWindow(win)
+        } else if (!state.comparisonVisible && comparisonWindow != null) {
+            comparisonWindow?.close()
+            comparisonWindow = null
+        }
     }
 
     private fun buildTabBar(active: Tab): String {
