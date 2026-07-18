@@ -4,10 +4,15 @@ import com.googlecode.lanterna.gui2.ActionListBox
 import com.googlecode.lanterna.gui2.BasicWindow
 import com.googlecode.lanterna.gui2.BorderLayout
 import com.googlecode.lanterna.gui2.Borders
-import com.googlecode.lanterna.gui2.ComboBox
+import com.googlecode.lanterna.gui2.Direction
+import com.googlecode.lanterna.gui2.Label
+import com.googlecode.lanterna.gui2.LinearLayout
 import com.googlecode.lanterna.gui2.MultiWindowTextGUI
 import com.googlecode.lanterna.gui2.Panel
 import com.googlecode.lanterna.gui2.Window
+import com.googlecode.lanterna.gui2.WindowListenerAdapter
+import com.googlecode.lanterna.input.KeyStroke
+import com.googlecode.lanterna.input.KeyType
 import com.googlecode.lanterna.screen.Screen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -15,6 +20,7 @@ import postmannen.model.AppState
 import postmannen.model.Collection
 import postmannen.model.Workspace
 import postmannen.viewmodel.AppViewModel
+import java.util.concurrent.atomic.AtomicBoolean
 
 class App(
     private val gui: MultiWindowTextGUI,
@@ -22,7 +28,7 @@ class App(
     private val viewModel: AppViewModel,
     private val scope: CoroutineScope
 ) {
-    private val workspaceDropdown = ComboBox<Workspace>()
+    private val workspaceDropdown = WorkspaceDropdown()
     private val collectionListBox = ActionListBox()
     private val statusBar = StatusBar()
     private val window = BasicWindow("postmannen")
@@ -36,7 +42,10 @@ class App(
             collectionListBox.withBorder(Borders.singleLine("Collections")),
             BorderLayout.Location.CENTER
         )
-        root.addComponent(statusBar, BorderLayout.Location.BOTTOM)
+        val bottomPanel = Panel(LinearLayout(Direction.VERTICAL))
+        bottomPanel.addComponent(statusBar)
+        bottomPanel.addComponent(Label("  q-quit"))
+        root.addComponent(bottomPanel, BorderLayout.Location.BOTTOM)
 
         window.component = root
 
@@ -46,6 +55,15 @@ class App(
                 viewModel.selectWorkspace(selectedIndex)
             }
         }
+
+        window.addWindowListener(object : WindowListenerAdapter() {
+            override fun onUnhandledInput(basePane: Window, keyStroke: KeyStroke, hasBeenHandled: AtomicBoolean) {
+                if (keyStroke.keyType == KeyType.Character && keyStroke.character == 'q') {
+                    window.close()
+                    hasBeenHandled.set(true)
+                }
+            }
+        })
 
         scope.launch {
             viewModel.state.collect { state ->
