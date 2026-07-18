@@ -131,4 +131,93 @@ class AppViewModelTest {
         assertEquals(postmannen.model.Tab.ENVIRONMENTS, vm.state.value.activeTab)
         assertEquals(null, fake.lastRequestedWorkspaceId)
     }
+
+    @Test
+    fun `toggleEnvironmentSelection adds then removes an id`() = runTest {
+        val vm = AppViewModel(FakePostmanApiService(), this)
+        vm.toggleEnvironmentSelection("env-1")
+        assertEquals(setOf("env-1"), vm.state.value.selectedEnvironmentIds)
+        vm.toggleEnvironmentSelection("env-1")
+        assertEquals(emptySet(), vm.state.value.selectedEnvironmentIds)
+    }
+
+    @Test
+    fun `openComparison with fewer than 2 selected sets status message and does not open`() = runTest {
+        val vm = AppViewModel(FakePostmanApiService(), this)
+        vm.toggleEnvironmentSelection("env-1")
+        vm.openComparison()
+        advanceUntilIdle()
+        assertEquals("Select at least 2 environments to compare", vm.state.value.statusMessage)
+        assertFalse(vm.state.value.comparisonVisible)
+    }
+
+    @Test
+    fun `openComparison with 2 selected fetches both details and opens`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        vm.toggleEnvironmentSelection("env-1")
+        vm.toggleEnvironmentSelection("env-2")
+        vm.openComparison()
+        advanceUntilIdle()
+        assertTrue(vm.state.value.comparisonVisible)
+        assertEquals(
+            setOf(FakePostmanApiService.FIXTURE_ENVIRONMENT_DETAIL_STAGING, FakePostmanApiService.FIXTURE_ENVIRONMENT_DETAIL_PRODUCTION),
+            vm.state.value.comparisonDetails.toSet()
+        )
+    }
+
+    @Test
+    fun `openComparison aborts and surfaces error when one fetch fails`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        fake.environmentDetailResults = mapOf(
+            "env-1-uid" to Result.success(FakePostmanApiService.FIXTURE_ENVIRONMENT_DETAIL_STAGING),
+            "env-2-uid" to Result.failure(RuntimeException("detail fetch failed"))
+        )
+        vm.toggleEnvironmentSelection("env-1")
+        vm.toggleEnvironmentSelection("env-2")
+        vm.openComparison()
+        advanceUntilIdle()
+        assertFalse(vm.state.value.comparisonVisible)
+        assertTrue(vm.state.value.statusMessage.contains("detail fetch failed"))
+    }
+
+    @Test
+    fun `closeComparison hides the overlay`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        vm.toggleEnvironmentSelection("env-1")
+        vm.toggleEnvironmentSelection("env-2")
+        vm.openComparison()
+        advanceUntilIdle()
+        vm.closeComparison()
+        assertFalse(vm.state.value.comparisonVisible)
+    }
+
+    @Test
+    fun `loadWorkspaces clears selectedEnvironmentIds`() = runTest {
+        val vm = AppViewModel(FakePostmanApiService(), this)
+        vm.toggleEnvironmentSelection("env-1")
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        assertEquals(emptySet(), vm.state.value.selectedEnvironmentIds)
+    }
+
+    @Test
+    fun `selectWorkspace clears selectedEnvironmentIds`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        vm.toggleEnvironmentSelection("env-1")
+        vm.selectWorkspace(1)
+        advanceUntilIdle()
+        assertEquals(emptySet(), vm.state.value.selectedEnvironmentIds)
+    }
 }

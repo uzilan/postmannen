@@ -1,6 +1,8 @@
 package postmannen.viewmodel
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,7 +26,14 @@ class AppViewModel(
             update { copy(loading = true) }
             service.getWorkspaces()
                 .onSuccess { workspaces ->
-                    update { copy(workspaces = workspaces, loading = false, selectedWorkspaceIndex = 0) }
+                    update {
+                        copy(
+                            workspaces = workspaces,
+                            loading = false,
+                            selectedWorkspaceIndex = 0,
+                            selectedEnvironmentIds = emptySet()
+                        )
+                    }
                     workspaces.firstOrNull()?.let {
                         loadCollections(it.id)
                         loadEnvironments(it.id)
@@ -38,7 +47,7 @@ class AppViewModel(
 
     fun selectWorkspace(index: Int) {
         val workspace = _state.value.workspaces.getOrNull(index) ?: return
-        update { copy(selectedWorkspaceIndex = index) }
+        update { copy(selectedWorkspaceIndex = index, selectedEnvironmentIds = emptySet()) }
         loadCollections(workspace.id)
         loadEnvironments(workspace.id)
     }
@@ -71,5 +80,35 @@ class AppViewModel(
 
     fun setActiveTab(tab: Tab) {
         update { copy(activeTab = tab) }
+    }
+
+    fun toggleEnvironmentSelection(id: String) {
+        update {
+            val newSet = if (id in selectedEnvironmentIds) selectedEnvironmentIds - id else selectedEnvironmentIds + id
+            copy(selectedEnvironmentIds = newSet)
+        }
+    }
+
+    fun openComparison() {
+        val selectedIds = _state.value.selectedEnvironmentIds
+        if (selectedIds.size < 2) {
+            update { copy(statusMessage = "Select at least 2 environments to compare") }
+            return
+        }
+        val targets = _state.value.environments.filter { it.id in selectedIds }
+        scope.launch {
+            val results = targets.map { env -> scope.async { service.getEnvironmentDetail(env.uid) } }.awaitAll()
+            val firstFailure = results.firstOrNull { it.isFailure }
+            if (firstFailure != null) {
+                update { copy(statusMessage = "Error: ${firstFailure.exceptionOrNull()?.message}") }
+                return@launch
+            }
+            val details = results.map { it.getOrThrow() }
+            update { copy(comparisonDetails = details, comparisonVisible = true) }
+        }
+    }
+
+    fun closeComparison() {
+        update { copy(comparisonVisible = false) }
     }
 }
