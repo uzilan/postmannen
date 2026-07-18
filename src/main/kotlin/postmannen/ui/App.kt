@@ -18,6 +18,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import postmannen.model.AppState
 import postmannen.model.Collection
+import postmannen.model.Environment
+import postmannen.model.Tab
 import postmannen.model.Workspace
 import postmannen.viewmodel.AppViewModel
 import java.util.concurrent.atomic.AtomicBoolean
@@ -29,7 +31,8 @@ class App(
     private val scope: CoroutineScope
 ) {
     private val workspaceDropdown = WorkspaceDropdown()
-    private val collectionListBox = ActionListBox()
+    private val tabBar = Label("")
+    private val itemListBox = ActionListBox()
     private val statusBar = StatusBar()
     private val window = BasicWindow("postmannen")
 
@@ -38,13 +41,15 @@ class App(
 
         val root = Panel(BorderLayout())
         root.addComponent(workspaceDropdown, BorderLayout.Location.TOP)
-        root.addComponent(
-            collectionListBox.withBorder(Borders.singleLine("Collections")),
-            BorderLayout.Location.CENTER
-        )
+
+        val centerPanel = Panel(LinearLayout(Direction.VERTICAL))
+        centerPanel.addComponent(tabBar)
+        centerPanel.addComponent(itemListBox)
+        root.addComponent(centerPanel.withBorder(Borders.singleLine()), BorderLayout.Location.CENTER)
+
         val bottomPanel = Panel(LinearLayout(Direction.VERTICAL))
         bottomPanel.addComponent(statusBar)
-        bottomPanel.addComponent(Label("  q-quit"))
+        bottomPanel.addComponent(Label("  [←][→] tabs  q-quit"))
         root.addComponent(bottomPanel, BorderLayout.Location.BOTTOM)
 
         window.component = root
@@ -58,9 +63,16 @@ class App(
 
         window.addWindowListener(object : WindowListenerAdapter() {
             override fun onUnhandledInput(basePane: Window, keyStroke: KeyStroke, hasBeenHandled: AtomicBoolean) {
-                if (keyStroke.keyType == KeyType.Character && keyStroke.character == 'q') {
-                    window.close()
-                    hasBeenHandled.set(true)
+                when {
+                    keyStroke.keyType == KeyType.Character && keyStroke.character == 'q' -> {
+                        window.close()
+                        hasBeenHandled.set(true)
+                    }
+                    keyStroke.keyType == KeyType.ArrowLeft || keyStroke.keyType == KeyType.ArrowRight -> {
+                        val next = if (viewModel.state.value.activeTab == Tab.COLLECTIONS) Tab.ENVIRONMENTS else Tab.COLLECTIONS
+                        viewModel.setActiveTab(next)
+                        hasBeenHandled.set(true)
+                    }
                 }
             }
         })
@@ -81,6 +93,8 @@ class App(
 
     private var lastWorkspaces: List<Workspace> = emptyList()
     private var lastCollections: List<Collection> = emptyList()
+    private var lastEnvironments: List<Environment> = emptyList()
+    private var lastActiveTab: Tab? = null
 
     private fun applyState(state: AppState) {
         if (state.workspaces != lastWorkspaces) {
@@ -92,14 +106,29 @@ class App(
             workspaceDropdown.selectedIndex = state.selectedWorkspaceIndex.coerceIn(0, state.workspaces.size - 1)
         }
 
-        if (state.collections != lastCollections) {
+        tabBar.text = buildTabBar(state.activeTab)
+
+        val itemsChanged = state.collections != lastCollections || state.environments != lastEnvironments
+        val tabChanged = state.activeTab != lastActiveTab
+        if (itemsChanged || tabChanged) {
             lastCollections = state.collections
-            collectionListBox.clearItems()
-            state.collections.forEach { collection ->
-                collectionListBox.addItem(collection.name) {}
+            lastEnvironments = state.environments
+            lastActiveTab = state.activeTab
+            itemListBox.clearItems()
+            val names = if (state.activeTab == Tab.COLLECTIONS) {
+                state.collections.map { it.name }
+            } else {
+                state.environments.map { it.name }
             }
+            names.forEach { name -> itemListBox.addItem(name) {} }
         }
 
         statusBar.setText(if (state.loading) "Loading..." else state.statusMessage)
+    }
+
+    private fun buildTabBar(active: Tab): String {
+        val collectionsLabel = if (active == Tab.COLLECTIONS) "[Collections]" else " Collections "
+        val environmentsLabel = if (active == Tab.ENVIRONMENTS) "[Environments]" else " Environments "
+        return " $collectionsLabel  $environmentsLabel"
     }
 }
