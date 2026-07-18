@@ -13,6 +13,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import postmannen.model.Collection
 import postmannen.model.Environment
+import postmannen.model.EnvironmentDetail
 import postmannen.model.Workspace
 
 class PostmanApiServiceImpl(private val apiKey: String) : PostmanApiService {
@@ -49,6 +50,14 @@ class PostmanApiServiceImpl(private val apiKey: String) : PostmanApiService {
         response.environments.map { Environment(id = it.id, name = it.name, uid = it.uid) }
     }
 
+    override suspend fun getEnvironmentDetail(environmentUid: String): Result<EnvironmentDetail> = runCatching {
+        val response: EnvironmentDetailResponse =
+            client.get { url { appendPathSegments("environments", environmentUid) } }.body()
+        val env = response.environment
+        val values = env.values.filter { it.enabled }.associate { it.key to it.value }
+        EnvironmentDetail(id = env.id, name = env.name, values = values)
+    }
+
     companion object {
         const val BASE_URL = "https://api.getpostman.com"
     }
@@ -74,3 +83,12 @@ private data class EnvironmentsResponse(val environments: List<EnvironmentDto>)
 
 @Serializable
 private data class EnvironmentDto(val id: String, val name: String, val uid: String)
+
+@Serializable
+private data class EnvironmentDetailResponse(val environment: EnvironmentDetailDto)
+
+@Serializable
+private data class EnvironmentDetailDto(val id: String, val name: String, val values: List<EnvironmentValueDto> = emptyList())
+
+@Serializable
+private data class EnvironmentValueDto(val key: String, val value: String, val enabled: Boolean = true, val type: String = "default")
