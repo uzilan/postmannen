@@ -46,7 +46,7 @@ class PostmanApiServiceImpl(private val apiKey: String) : PostmanApiService {
                     parameters.append("workspace", workspaceId)
                 }
             }.body()
-        response.environments.map { Environment(id = it.id, name = it.name) }
+        response.environments.map { Environment(id = it.id, name = it.name, uid = it.uid) }
     }
 
     companion object {

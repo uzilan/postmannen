@@ -104,10 +104,10 @@ class AppViewModelTest {
         val vm = AppViewModel(fake, this)
         vm.loadWorkspaces()
         advanceUntilIdle()
-        fake.environmentsResult = Result.success(listOf(postmannen.model.Environment(id = "env-3", name = "QA")))
+        fake.environmentsResult = Result.success(listOf(postmannen.model.Environment(id = "env-3", name = "QA", uid = "env-3-uid")))
         vm.selectWorkspace(1)
         advanceUntilIdle()
-        assertEquals(listOf(postmannen.model.Environment(id = "env-3", name = "QA")), vm.state.value.environments)
+        assertEquals(listOf(postmannen.model.Environment(id = "env-3", name = "QA", uid = "env-3-uid")), vm.state.value.environments)
     }
 
     @Test
