@@ -88,4 +88,47 @@ class AppViewModelTest {
         advanceUntilIdle()
         assertFalse(vm.state.value.loading)
     }
+
+    @Test
+    fun `loadWorkspaces also loads environments for the first workspace`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        assertEquals(FakePostmanApiService.FIXTURE_ENVIRONMENTS, vm.state.value.environments)
+    }
+
+    @Test
+    fun `selectWorkspace reloads environments too`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        fake.environmentsResult = Result.success(listOf(postmannen.model.Environment(id = "env-3", name = "QA")))
+        vm.selectWorkspace(1)
+        advanceUntilIdle()
+        assertEquals(listOf(postmannen.model.Environment(id = "env-3", name = "QA")), vm.state.value.environments)
+    }
+
+    @Test
+    fun `loadEnvironments on failure sets status message and preserves existing list`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        fake.environmentsResult = Result.failure(RuntimeException("env fetch error"))
+        vm.loadEnvironments("ws-1")
+        advanceUntilIdle()
+        assertTrue(vm.state.value.statusMessage.contains("env fetch error"))
+        assertEquals(FakePostmanApiService.FIXTURE_ENVIRONMENTS, vm.state.value.environments)
+    }
+
+    @Test
+    fun `setActiveTab updates activeTab without calling the service`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.setActiveTab(postmannen.model.Tab.ENVIRONMENTS)
+        assertEquals(postmannen.model.Tab.ENVIRONMENTS, vm.state.value.activeTab)
+        assertEquals(null, fake.lastRequestedWorkspaceId)
+    }
 }

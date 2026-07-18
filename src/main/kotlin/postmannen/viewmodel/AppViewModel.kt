@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import postmannen.model.AppState
+import postmannen.model.Tab
 import postmannen.service.PostmanApiService
 
 class AppViewModel(
@@ -24,7 +25,10 @@ class AppViewModel(
             service.getWorkspaces()
                 .onSuccess { workspaces ->
                     update { copy(workspaces = workspaces, loading = false, selectedWorkspaceIndex = 0) }
-                    workspaces.firstOrNull()?.let { loadCollections(it.id) }
+                    workspaces.firstOrNull()?.let {
+                        loadCollections(it.id)
+                        loadEnvironments(it.id)
+                    }
                 }
                 .onFailure { e ->
                     update { copy(loading = false, statusMessage = "Error: ${e.message}") }
@@ -36,6 +40,7 @@ class AppViewModel(
         val workspace = _state.value.workspaces.getOrNull(index) ?: return
         update { copy(selectedWorkspaceIndex = index) }
         loadCollections(workspace.id)
+        loadEnvironments(workspace.id)
     }
 
     fun loadCollections(workspaceId: String) {
@@ -49,5 +54,22 @@ class AppViewModel(
                     update { copy(loading = false, statusMessage = "Error: ${e.message}") }
                 }
         }
+    }
+
+    fun loadEnvironments(workspaceId: String) {
+        scope.launch {
+            update { copy(loading = true) }
+            service.getEnvironments(workspaceId)
+                .onSuccess { environments ->
+                    update { copy(environments = environments, loading = false) }
+                }
+                .onFailure { e ->
+                    update { copy(loading = false, statusMessage = "Error: ${e.message}") }
+                }
+        }
+    }
+
+    fun setActiveTab(tab: Tab) {
+        update { copy(activeTab = tab) }
     }
 }
