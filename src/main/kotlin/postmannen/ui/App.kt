@@ -47,9 +47,8 @@ class App(
         preferredSize = TerminalSize(30, preferredSize.rows)
     }
     private val chatPanelBordered = chatPanel.withBorder(Borders.singleLine())
-    private val centerPanel = Panel(LinearLayout(Direction.HORIZONTAL))
-    private var detailPanelVisible = false
-    private var chatPanelAdded = false
+    private val centerLayout = ThreeColumnLayout()
+    private val centerPanel = Panel(centerLayout)
     private val statusBar = StatusBar()
     private val hintLabel = Label("")
     private val window = BasicWindow("postmannen")
@@ -68,6 +67,10 @@ class App(
         topPanel.addComponent(workspaceDropdown)
         root.addComponent(topPanel, BorderLayout.Location.TOP)
         centerPanel.addComponent(tabbedListPanel.withBorder(Borders.singleLine()))
+        centerPanel.addComponent(ColumnSplitter(centerLayout, splitterIndex = 0))
+        centerPanel.addComponent(detailPanelBordered)
+        centerPanel.addComponent(ColumnSplitter(centerLayout, splitterIndex = 1))
+        centerPanel.addComponent(chatPanelBordered)
         root.addComponent(centerPanel, BorderLayout.Location.CENTER)
 
         val bottomPanel = Panel(LinearLayout(Direction.VERTICAL))
@@ -224,17 +227,6 @@ class App(
             detailPanel.focusGrid()
         }
 
-        val shouldShowDetailPanel = if (state.activeTab == Tab.COLLECTIONS) state.collections.isNotEmpty() else state.environments.isNotEmpty()
-        if (shouldShowDetailPanel != detailPanelVisible) {
-            detailPanelVisible = shouldShowDetailPanel
-            if (chatPanelAdded) centerPanel.removeComponent(chatPanelBordered)
-            if (shouldShowDetailPanel) centerPanel.addComponent(detailPanelBordered) else centerPanel.removeComponent(detailPanelBordered)
-            centerPanel.addComponent(chatPanelBordered)
-            chatPanelAdded = true
-        } else if (!chatPanelAdded) {
-            chatPanelAdded = true
-            centerPanel.addComponent(chatPanelBordered)
-        }
     }
 
     private fun buildChatContext(): ChatContext {
