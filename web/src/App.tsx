@@ -36,6 +36,12 @@ export default function App() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   useEffect(() => {
+    setDetailContent({ kind: 'none' })
+    setHighlightedEnvironmentId(null)
+    setMarkedEnvironmentIds(new Set())
+  }, [activeTab])
+
+  useEffect(() => {
     getWorkspaces()
       .then((ws) => {
         setWorkspaces(ws)
