@@ -65,6 +65,8 @@ class App(
         val topPanel = Panel(LinearLayout(Direction.HORIZONTAL))
         topPanel.addComponent(Label("Workspace:"))
         topPanel.addComponent(workspaceDropdown)
+        topPanel.addComponent(Label("  "))
+        topPanel.addComponent(tabbedListPanel.tabBar)
         root.addComponent(topPanel, BorderLayout.Location.TOP)
         centerPanel.addComponent(tabbedListPanel.withBorder(Borders.singleLine()))
         centerPanel.addComponent(ColumnSplitter(centerLayout, splitterIndex = 0))

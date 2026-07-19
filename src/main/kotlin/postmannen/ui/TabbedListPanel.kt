@@ -19,7 +19,7 @@ import postmannen.model.Environment
 import postmannen.model.Tab
 
 class TabbedListPanel : Panel(LinearLayout(Direction.VERTICAL)) {
-    private val tabBar = Label("")
+    val tabBar = Label("")
 
     @Volatile var onSpaceKey: (() -> Unit)? = null
     @Volatile var onEnterKey: (() -> Unit)? = null
@@ -64,8 +64,6 @@ class TabbedListPanel : Panel(LinearLayout(Direction.VERTICAL)) {
     val selectedNodeId: String? get() = collectionRows.getOrNull(itemListBox.selectedIndex)?.nodeId
 
     init {
-        addComponent(tabBar)
-        addComponent(Label(""))
         addComponent(itemListBox)
     }
 
