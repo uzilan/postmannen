@@ -1,4 +1,5 @@
-import { MenuItem, Select, SelectChangeEvent } from '@mui/material'
+import { MenuItem, Select } from '@mui/material'
+import type { SelectChangeEvent } from '@mui/material'
 import type { Workspace } from '../api'
 
 export function WorkspaceSelector(props: {
