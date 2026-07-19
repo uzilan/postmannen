@@ -18,6 +18,9 @@ class FakePostmanApiService : PostmanApiService {
     var updateEnvironmentHandler: ((EnvironmentDetail) -> Result<Unit>)? = null
     var lastUpdatedEnvironmentDetail: EnvironmentDetail? = null
     var lastRequestedWorkspaceId: String? = null
+    var createEnvironmentResult: Result<Environment> = Result.success(Environment(id = "env-new", name = "New Env", uid = "env-new-uid"))
+    var lastCreatedEnvironmentName: String? = null
+    var lastCreatedEnvironmentWorkspaceId: String? = null
 
     override suspend fun getWorkspaces(): Result<List<Workspace>> = workspacesResult
 
@@ -38,6 +41,12 @@ class FakePostmanApiService : PostmanApiService {
     override suspend fun updateEnvironment(detail: EnvironmentDetail): Result<Unit> {
         lastUpdatedEnvironmentDetail = detail
         return updateEnvironmentHandler?.invoke(detail) ?: updateEnvironmentResult
+    }
+
+    override suspend fun createEnvironment(workspaceId: String, name: String): Result<Environment> {
+        lastCreatedEnvironmentWorkspaceId = workspaceId
+        lastCreatedEnvironmentName = name
+        return createEnvironmentResult
     }
 
     companion object {

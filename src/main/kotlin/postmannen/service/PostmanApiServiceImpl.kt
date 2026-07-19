@@ -7,6 +7,7 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -83,6 +84,18 @@ class PostmanApiServiceImpl(private val apiKey: String) : PostmanApiService {
         }
     }
 
+    override suspend fun createEnvironment(workspaceId: String, name: String): Result<Environment> = runCatching {
+        val response: EnvironmentCreateResponse = client.post {
+            url {
+                appendPathSegments("environments")
+                parameters.append("workspace", workspaceId)
+            }
+            contentType(ContentType.Application.Json)
+            setBody(EnvironmentCreateRequest(EnvironmentCreateDto(name = name, values = emptyList())))
+        }.body()
+        Environment(id = response.environment.id, name = response.environment.name, uid = response.environment.uid)
+    }
+
     companion object {
         const val BASE_URL = "https://api.getpostman.com"
     }
@@ -123,3 +136,15 @@ private data class EnvironmentUpdateRequest(val environment: EnvironmentUpdateDt
 
 @Serializable
 private data class EnvironmentUpdateDto(val name: String, val values: List<EnvironmentValueDto>)
+
+@Serializable
+private data class EnvironmentCreateRequest(val environment: EnvironmentCreateDto)
+
+@Serializable
+private data class EnvironmentCreateDto(val name: String, val values: List<EnvironmentValueDto>)
+
+@Serializable
+private data class EnvironmentCreateResponse(val environment: EnvironmentCreateResponseDto)
+
+@Serializable
+private data class EnvironmentCreateResponseDto(val id: String, val name: String, val uid: String)
