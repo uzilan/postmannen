@@ -24,6 +24,7 @@ import postmannen.model.Workspace
 class PostmanApiServiceImpl(private val apiKey: String) : PostmanApiService {
 
     private val client = HttpClient(CIO) {
+        expectSuccess = true
         install(ContentNegotiation) {
             json(Json { ignoreUnknownKeys = true })
         }

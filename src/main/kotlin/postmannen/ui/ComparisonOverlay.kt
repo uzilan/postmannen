@@ -93,8 +93,8 @@ class ComparisonOverlay(
         details.forEach { detail ->
             detail.values.forEach { value ->
                 val cellKey = detail.uid to value.key
-                textBoxes[cellKey]?.let { box -> if (!box.isFocused) box.text = value.value }
-                checkBoxes[cellKey]?.let { box -> if (!box.isFocused) box.isChecked = value.enabled }
+                textBoxes[cellKey]?.let { box -> if (!box.isFocused && box.text != value.value) box.text = value.value }
+                checkBoxes[cellKey]?.let { box -> if (!box.isFocused && box.isChecked != value.enabled) box.isChecked = value.enabled }
             }
         }
     }
