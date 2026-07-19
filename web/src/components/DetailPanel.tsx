@@ -1,4 +1,4 @@
-import { Button, IconButton, Table, TableBody, TableCell, TableHead, TableRow, Checkbox, TextField, Typography } from '@mui/material'
+import { Box, Button, IconButton, Table, TableBody, TableCell, TableHead, TableRow, Checkbox, TextField, Typography } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { useState } from 'react'
 import type { CollectionVariable, EnvironmentDetail } from '../api'
@@ -24,16 +24,21 @@ export function DetailPanel(props: {
 
   if (content.kind === 'collectionVariables') {
     return (
-      <Table>
-        <TableBody>
-          {content.variables.map((v) => (
-            <TableRow key={v.key}>
-              <TableCell>{v.key}</TableCell>
-              <TableCell>{v.value}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <Box component="fieldset" sx={{ borderColor: 'divider', borderRadius: 1, m: 1 }}>
+        <Box component="legend" sx={{ px: 1 }}>
+          Variables
+        </Box>
+        <Table>
+          <TableBody>
+            {content.variables.map((v) => (
+              <TableRow key={v.key}>
+                <TableCell>{v.key}</TableCell>
+                <TableCell>{v.value}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Box>
     )
   }
 
