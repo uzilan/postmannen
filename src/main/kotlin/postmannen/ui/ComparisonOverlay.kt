@@ -15,7 +15,12 @@ import com.googlecode.lanterna.input.KeyType
 import postmannen.model.EnvironmentDetail
 import java.util.concurrent.atomic.AtomicBoolean
 
-private const val VALUE_COLUMN_WIDTH = 30
+// Lanterna's GridLayout has no minimum-width protection when the total row
+// width exceeds the terminal: it shrinks every column by 1, round-robin,
+// including the checkbox's fixed 3-wide "[ ]" — so this must stay small
+// enough that (key column + N * (3 + this)) rarely exceeds the terminal
+// width, or the checkbox column gets eaten into and its "]" disappears.
+private const val VALUE_COLUMN_WIDTH = 18
 
 class ComparisonOverlay(
     initialDetails: List<EnvironmentDetail>,
@@ -70,6 +75,7 @@ class ComparisonOverlay(
                 }
                 (textBox.renderer as? TextBox.DefaultTextBoxRenderer)?.setUnusedSpaceCharacter(' ')
                 textBox.preferredSize = TerminalSize(VALUE_COLUMN_WIDTH, 1)
+                textBox.setCaretPosition(0, 0)
                 textBoxes[cellKey] = textBox
                 panel.addComponent(textBox)
             }
