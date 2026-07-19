@@ -113,7 +113,7 @@ class App(
         tabbedListPanel.applyState(state)
 
         hintLabel.text = when {
-            state.comparisonVisible -> "  [esc] close"
+            state.comparisonVisible -> "  [esc] close  ^N add key  ^D delete key"
             state.activeTab == Tab.ENVIRONMENTS -> "  [space] select  [c] compare (${state.selectedEnvironmentIds.size})  [←][→] tabs  q-quit"
             else -> "  [←][→] tabs  q-quit"
         }
@@ -122,10 +122,12 @@ class App(
 
         if (state.comparisonVisible && comparisonWindow == null) {
             val win = ComparisonOverlay(
+                gui = gui,
                 initialDetails = state.comparisonDetails,
                 onValueChanged = { uid, key, newValue -> viewModel.updateEnvironmentValue(uid, key, newValue) },
                 onEnabledToggled = { uid, key -> viewModel.toggleEnvironmentValueEnabled(uid, key) },
                 onKeyRenamed = { oldKey, newKey -> viewModel.renameEnvironmentKey(oldKey, newKey) },
+                onKeyDeleted = { key -> viewModel.deleteEnvironmentKey(key) },
                 onDismiss = { viewModel.closeComparison() }
             )
             comparisonWindow = win

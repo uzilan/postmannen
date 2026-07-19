@@ -6,6 +6,7 @@ import com.googlecode.lanterna.gui2.CheckBox
 import com.googlecode.lanterna.gui2.GridLayout
 import com.googlecode.lanterna.gui2.Interactable
 import com.googlecode.lanterna.gui2.Label
+import com.googlecode.lanterna.gui2.MultiWindowTextGUI
 import com.googlecode.lanterna.gui2.Panel
 import com.googlecode.lanterna.gui2.TextBox
 import com.googlecode.lanterna.gui2.Window
@@ -24,17 +25,20 @@ private const val VALUE_COLUMN_WIDTH = 18
 private const val KEY_COLUMN_WIDTH = 18
 
 class ComparisonOverlay(
+    private val gui: MultiWindowTextGUI,
     initialDetails: List<EnvironmentDetail>,
     private val onValueChanged: (environmentUid: String, key: String, newValue: String) -> Unit,
     private val onEnabledToggled: (environmentUid: String, key: String) -> Unit,
     private val onKeyRenamed: (oldKey: String, newKey: String) -> Unit,
+    private val onKeyDeleted: (key: String) -> Unit,
     private val onDismiss: () -> Unit
 ) : BasicWindow("Compare Environments") {
 
     private class Row(
         val originalKey: String,
         val keyBox: TextBox,
-        val cellsByUid: MutableMap<String, Pair<CheckBox, TextBox>>
+        val cellsByUid: MutableMap<String, Pair<CheckBox, TextBox>>,
+        var pendingDelete: Boolean = false
     )
 
     private val environments = initialDetails
@@ -58,14 +62,63 @@ class ComparisonOverlay(
 
         addWindowListener(object : WindowListenerAdapter() {
             override fun onUnhandledInput(basePane: Window, key: KeyStroke, hasBeenHandled: AtomicBoolean) {
-                if (key.keyType == KeyType.Escape) {
-                    onDismiss()
-                    hasBeenHandled.set(true)
+                when {
+                    key.keyType == KeyType.Escape -> {
+                        onDismiss()
+                        hasBeenHandled.set(true)
+                    }
+                    key.keyType == KeyType.Character && key.character == 'n' && key.isCtrlDown -> {
+                        addNewRow()
+                        hasBeenHandled.set(true)
+                    }
+                    key.keyType == KeyType.Character && key.character == 'd' && key.isCtrlDown -> {
+                        deleteFocusedRow()
+                        hasBeenHandled.set(true)
+                    }
                 }
             }
         })
 
         component = panel
+    }
+
+    private fun addNewRow() {
+        val row = buildRow("")
+        row.keyBox.takeFocus()
+    }
+
+    private fun deleteFocusedRow() {
+        val row = rows.firstOrNull { r ->
+            r.keyBox.isFocused || r.cellsByUid.values.any { (checkBox, valueBox) -> checkBox.isFocused || valueBox.isFocused }
+        } ?: return
+        val key = row.keyBox.text
+        val hasAnyRealEntry = environments.any { detail -> detail.values.any { it.key == key } }
+        if (!hasAnyRealEntry) {
+            removeRow(row)
+            return
+        }
+        var confirmWindow: ConfirmOverlay? = null
+        confirmWindow = ConfirmOverlay(
+            message = "Delete key '$key' from every environment that has it?",
+            onConfirm = {
+                confirmWindow?.close()
+                row.pendingDelete = true
+                onKeyDeleted(key)
+            },
+            onCancel = {
+                confirmWindow?.close()
+            }
+        )
+        gui.addWindow(confirmWindow)
+    }
+
+    private fun removeRow(row: Row) {
+        panel.removeComponent(row.keyBox)
+        row.cellsByUid.values.forEach { (checkBox, valueBox) ->
+            panel.removeComponent(checkBox)
+            panel.removeComponent(valueBox)
+        }
+        rows.remove(row)
     }
 
     private fun buildRow(originalKey: String): Row {
@@ -123,8 +176,18 @@ class ComparisonOverlay(
     }
 
     fun applyDetails(details: List<EnvironmentDetail>) {
-        rows.forEach { row ->
+        rows.toList().forEach { row ->
             val liveKey = row.keyBox.text
+
+            if (row.pendingDelete) {
+                val stillExists = details.any { detail -> detail.values.any { it.key == liveKey } }
+                if (!stillExists) {
+                    removeRow(row)
+                    return@forEach
+                }
+                row.pendingDelete = false
+            }
+
             row.cellsByUid.forEach { (uid, cell) ->
                 val (checkBox, valueBox) = cell
                 val value = details.firstOrNull { it.uid == uid }?.values?.firstOrNull { it.key == liveKey }
@@ -140,8 +203,8 @@ class ComparisonOverlay(
             // failed and was rolled back, so reset the display back to the original. If
             // it no longer appears anywhere, the rename succeeded and the box already
             // shows what the user typed — leave it alone.
-            val stillExists = details.any { detail -> detail.values.any { it.key == row.originalKey } }
-            if (stillExists && !row.keyBox.isFocused && row.keyBox.text != row.originalKey) {
+            val stillExistsOriginal = details.any { detail -> detail.values.any { it.key == row.originalKey } }
+            if (stillExistsOriginal && !row.keyBox.isFocused && row.keyBox.text != row.originalKey) {
                 row.keyBox.text = row.originalKey
             }
         }
