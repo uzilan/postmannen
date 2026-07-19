@@ -80,10 +80,14 @@ export type ChatContext = { workspaceName?: string; workspaceId?: string; highli
 
 type ChatApiResponse = { reply: string; toolsUsed: string[]; errored: boolean; sessionId: string | null }
 
-const WRITE_TOOL_PREFIXES = ['create_', 'update_', 'delete_', 'put_', 'patch_']
+const WRITE_TOOL_VERBS = ['create', 'update', 'delete', 'put', 'patch']
 
 export function isWriteTool(name: string): boolean {
-  return WRITE_TOOL_PREFIXES.some((prefix) => name.startsWith(prefix))
+  // MCP tool names are namespaced as mcp__<server>__<camelCaseVerb><Noun>
+  // (e.g. "mcp__postman__createEnvironment"), not the "create_environment"
+  // shape the old TUI assumed — match against the part after the last "__".
+  const shortName = name.split('__').pop() ?? name
+  return WRITE_TOOL_VERBS.some((verb) => shortName.toLowerCase().startsWith(verb))
 }
 
 export async function sendChatMessage(
