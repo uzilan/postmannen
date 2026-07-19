@@ -31,19 +31,21 @@ class ComparisonOverlay(
     private val onDismiss: () -> Unit
 ) : BasicWindow("Compare Environments") {
 
-    private val checkBoxes = mutableMapOf<Pair<String, String>, CheckBox>()
-    private val textBoxes = mutableMapOf<Pair<String, String>, TextBox>()
-    private val keyTextBoxes = mutableMapOf<String, TextBox>()
+    private class Row(
+        val originalKey: String,
+        val keyBox: TextBox,
+        val cellsByUid: MutableMap<String, Pair<CheckBox, TextBox>>
+    )
+
+    private val environments = initialDetails
+    private val rows = mutableListOf<Row>()
+    private val panel = Panel(GridLayout(1 + initialDetails.size * 2))
 
     init {
         setHints(setOf(Window.Hint.CENTERED))
 
-        val keys = initialDetails.flatMap { detail -> detail.values.map { it.key } }.toSortedSet()
-        val columns = 1 + initialDetails.size * 2
-        val panel = Panel(GridLayout(columns))
-
         panel.addComponent(Label(""))
-        initialDetails.forEach { detail ->
+        environments.forEach { detail ->
             val nameLabel = Label(detail.name)
             nameLabel.layoutData = GridLayout.createLayoutData(
                 GridLayout.Alignment.BEGINNING, GridLayout.Alignment.CENTER, false, false, 2, 1
@@ -51,55 +53,8 @@ class ComparisonOverlay(
             panel.addComponent(nameLabel)
         }
 
-        keys.forEach { key ->
-            val keyTextBox = object : TextBox(key) {
-                private var textOnFocus = text
-                override fun afterEnterFocus(direction: Interactable.FocusChangeDirection, previouslyInFocus: Interactable?) {
-                    textOnFocus = text
-                    super.afterEnterFocus(direction, previouslyInFocus)
-                }
-                override fun afterLeaveFocus(direction: Interactable.FocusChangeDirection, nextInFocus: Interactable?) {
-                    if (text != textOnFocus) {
-                        onKeyRenamed(key, text)
-                    }
-                    super.afterLeaveFocus(direction, nextInFocus)
-                }
-            }
-            (keyTextBox.renderer as? TextBox.DefaultTextBoxRenderer)?.setUnusedSpaceCharacter(' ')
-            keyTextBox.preferredSize = TerminalSize(KEY_COLUMN_WIDTH, 1)
-            keyTextBox.setCaretPosition(0, 0)
-            keyTextBoxes[key] = keyTextBox
-            panel.addComponent(keyTextBox)
-            initialDetails.forEach { detail ->
-                val existing = detail.values.firstOrNull { it.key == key }
-                val cellKey = detail.uid to key
-
-                val checkBox = CheckBox()
-                checkBox.isChecked = existing?.enabled ?: false
-                checkBox.addListener { _ -> onEnabledToggled(detail.uid, key) }
-                checkBoxes[cellKey] = checkBox
-                panel.addComponent(checkBox)
-
-                val textBox = object : TextBox(existing?.value ?: "") {
-                    private var textOnFocus = text
-                    override fun afterEnterFocus(direction: Interactable.FocusChangeDirection, previouslyInFocus: Interactable?) {
-                        textOnFocus = text
-                        super.afterEnterFocus(direction, previouslyInFocus)
-                    }
-                    override fun afterLeaveFocus(direction: Interactable.FocusChangeDirection, nextInFocus: Interactable?) {
-                        if (text != textOnFocus) {
-                            onValueChanged(detail.uid, key, text)
-                        }
-                        super.afterLeaveFocus(direction, nextInFocus)
-                    }
-                }
-                (textBox.renderer as? TextBox.DefaultTextBoxRenderer)?.setUnusedSpaceCharacter(' ')
-                textBox.preferredSize = TerminalSize(VALUE_COLUMN_WIDTH, 1)
-                textBox.setCaretPosition(0, 0)
-                textBoxes[cellKey] = textBox
-                panel.addComponent(textBox)
-            }
-        }
+        val keys = environments.flatMap { detail -> detail.values.map { it.key } }.toSortedSet()
+        keys.forEach { key -> buildRow(key) }
 
         addWindowListener(object : WindowListenerAdapter() {
             override fun onUnhandledInput(basePane: Window, key: KeyStroke, hasBeenHandled: AtomicBoolean) {
@@ -113,24 +68,81 @@ class ComparisonOverlay(
         component = panel
     }
 
-    fun applyDetails(details: List<EnvironmentDetail>) {
-        details.forEach { detail ->
-            detail.values.forEach { value ->
-                val cellKey = detail.uid to value.key
-                textBoxes[cellKey]?.let { box -> if (!box.isFocused && box.text != value.value) box.text = value.value }
-                checkBoxes[cellKey]?.let { box -> if (!box.isFocused && box.isChecked != value.enabled) box.isChecked = value.enabled }
+    private fun buildRow(originalKey: String): Row {
+        val keyBox = object : TextBox(originalKey) {
+            private var textOnFocus = text
+            override fun afterEnterFocus(direction: Interactable.FocusChangeDirection, previouslyInFocus: Interactable?) {
+                textOnFocus = text
+                super.afterEnterFocus(direction, previouslyInFocus)
+            }
+            override fun afterLeaveFocus(direction: Interactable.FocusChangeDirection, nextInFocus: Interactable?) {
+                if (text != textOnFocus) {
+                    onKeyRenamed(textOnFocus, text)
+                }
+                super.afterLeaveFocus(direction, nextInFocus)
             }
         }
-        // A key TextBox is tracked by its original construction-time key. This app
-        // never truly deletes a key (only adds or renames one), so if that original
-        // key still appears anywhere in the current details, any rename attempt for
-        // it either never happened or failed and was rolled back — reset the display
-        // back to the original. If it no longer appears anywhere, the rename
-        // succeeded and the box already shows what the user typed — leave it alone.
-        keyTextBoxes.forEach { (originalKey, box) ->
-            val stillExists = details.any { detail -> detail.values.any { it.key == originalKey } }
-            if (stillExists && !box.isFocused && box.text != originalKey) {
-                box.text = originalKey
+        (keyBox.renderer as? TextBox.DefaultTextBoxRenderer)?.setUnusedSpaceCharacter(' ')
+        keyBox.preferredSize = TerminalSize(KEY_COLUMN_WIDTH, 1)
+        keyBox.setCaretPosition(0, 0)
+        panel.addComponent(keyBox)
+
+        val row = Row(originalKey, keyBox, mutableMapOf())
+        rows.add(row)
+
+        environments.forEach { detail ->
+            val existing = detail.values.firstOrNull { it.key == originalKey }
+
+            val checkBox = CheckBox()
+            checkBox.isChecked = existing?.enabled ?: false
+            checkBox.addListener { _ -> onEnabledToggled(detail.uid, row.keyBox.text) }
+            panel.addComponent(checkBox)
+
+            val valueBox = object : TextBox(existing?.value ?: "") {
+                private var textOnFocus = text
+                override fun afterEnterFocus(direction: Interactable.FocusChangeDirection, previouslyInFocus: Interactable?) {
+                    textOnFocus = text
+                    super.afterEnterFocus(direction, previouslyInFocus)
+                }
+                override fun afterLeaveFocus(direction: Interactable.FocusChangeDirection, nextInFocus: Interactable?) {
+                    if (text != textOnFocus) {
+                        onValueChanged(detail.uid, row.keyBox.text, text)
+                    }
+                    super.afterLeaveFocus(direction, nextInFocus)
+                }
+            }
+            (valueBox.renderer as? TextBox.DefaultTextBoxRenderer)?.setUnusedSpaceCharacter(' ')
+            valueBox.preferredSize = TerminalSize(VALUE_COLUMN_WIDTH, 1)
+            valueBox.setCaretPosition(0, 0)
+            panel.addComponent(valueBox)
+
+            row.cellsByUid[detail.uid] = checkBox to valueBox
+        }
+
+        return row
+    }
+
+    fun applyDetails(details: List<EnvironmentDetail>) {
+        rows.forEach { row ->
+            val liveKey = row.keyBox.text
+            row.cellsByUid.forEach { (uid, cell) ->
+                val (checkBox, valueBox) = cell
+                val value = details.firstOrNull { it.uid == uid }?.values?.firstOrNull { it.key == liveKey }
+                if (value != null) {
+                    if (!valueBox.isFocused && valueBox.text != value.value) valueBox.text = value.value
+                    if (!checkBox.isFocused && checkBox.isChecked != value.enabled) checkBox.isChecked = value.enabled
+                }
+            }
+            // The key box is tracked by its original construction-time key. This app
+            // never truly deletes a key (only adds or renames one) as far as this class
+            // is concerned in this task — if that original key still appears anywhere in
+            // the current details, any rename attempt for it either never happened or
+            // failed and was rolled back, so reset the display back to the original. If
+            // it no longer appears anywhere, the rename succeeded and the box already
+            // shows what the user typed — leave it alone.
+            val stillExists = details.any { detail -> detail.values.any { it.key == row.originalKey } }
+            if (stillExists && !row.keyBox.isFocused && row.keyBox.text != row.originalKey) {
+                row.keyBox.text = row.originalKey
             }
         }
     }
