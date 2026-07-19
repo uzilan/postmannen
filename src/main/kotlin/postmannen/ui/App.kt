@@ -16,16 +16,19 @@ import com.googlecode.lanterna.screen.Screen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import postmannen.model.AppState
+import postmannen.model.ChatContext
 import postmannen.model.Collection
 import postmannen.model.Tab
 import postmannen.model.Workspace
 import postmannen.viewmodel.AppViewModel
+import postmannen.viewmodel.ChatViewModel
 import java.util.concurrent.atomic.AtomicBoolean
 
 class App(
     private val gui: MultiWindowTextGUI,
     private val screen: Screen,
     private val viewModel: AppViewModel,
+    private val chatViewModel: ChatViewModel,
     private val scope: CoroutineScope
 ) {
     private val workspaceDropdown = WorkspaceDropdown()
@@ -38,8 +41,11 @@ class App(
         onKeyDeleted = { key -> viewModel.deleteEnvironmentKey(key) }
     )
     private val detailPanelBordered = detailPanel.withBorder(Borders.singleLine())
+    private val chatPanel = ChatPanel(onSubmit = { text -> chatViewModel.sendMessage(text, buildChatContext()) })
+    private val chatPanelBordered = chatPanel.withBorder(Borders.singleLine())
     private val centerPanel = Panel(LinearLayout(Direction.HORIZONTAL))
     private var detailPanelVisible = false
+    private var chatPanelAdded = false
     private val statusBar = StatusBar()
     private val hintLabel = Label("")
     private val window = BasicWindow("postmannen")
@@ -47,6 +53,7 @@ class App(
     private var focusPendingForWorkspaceIndex: Int? = null
     private var collectionsBeforeSwitch: List<Collection> = emptyList()
     private var gridFocused = false
+    private var chatFocused = false
 
     fun run() {
         window.setHints(setOf(Window.Hint.FULL_SCREEN, Window.Hint.NO_DECORATIONS))
@@ -111,9 +118,15 @@ class App(
                         viewModel.refreshWorkspace()
                         hasBeenHandled.set(true)
                     }
-                    keyStroke.keyType == KeyType.Escape && gridFocused -> {
+                    keyStroke.keyType == KeyType.Escape && (gridFocused || chatFocused) -> {
                         tabbedListPanel.focusList()
                         gridFocused = false
+                        chatFocused = false
+                        hasBeenHandled.set(true)
+                    }
+                    keyStroke.keyType == KeyType.Character && keyStroke.character == 'k' && keyStroke.isCtrlDown -> {
+                        chatPanel.focusInput()
+                        chatFocused = true
                         hasBeenHandled.set(true)
                     }
                     keyStroke.keyType == KeyType.ArrowLeft || keyStroke.keyType == KeyType.ArrowRight -> {
@@ -149,7 +162,17 @@ class App(
             }
         }
 
+        scope.launch {
+            chatViewModel.state.collect { chatState ->
+                synchronized(gui) {
+                    chatPanel.applyState(chatState)
+                    try { gui.updateScreen() } catch (_: Exception) {}
+                }
+            }
+        }
+
         gui.addWindowAndWait(window)
+        chatViewModel.close()
     }
 
     private var lastWorkspaces: List<Workspace> = emptyList()
@@ -198,8 +221,30 @@ class App(
         val shouldShowDetailPanel = if (state.activeTab == Tab.COLLECTIONS) state.collections.isNotEmpty() else state.environments.isNotEmpty()
         if (shouldShowDetailPanel != detailPanelVisible) {
             detailPanelVisible = shouldShowDetailPanel
+            if (chatPanelAdded) centerPanel.removeComponent(chatPanelBordered)
             if (shouldShowDetailPanel) centerPanel.addComponent(detailPanelBordered) else centerPanel.removeComponent(detailPanelBordered)
+            centerPanel.addComponent(chatPanelBordered)
+            chatPanelAdded = true
+        } else if (!chatPanelAdded) {
+            chatPanelAdded = true
+            centerPanel.addComponent(chatPanelBordered)
         }
+    }
+
+    private fun buildChatContext(): ChatContext {
+        val state = viewModel.state.value
+        val workspace = state.workspaces.getOrNull(state.selectedWorkspaceIndex)
+        val highlightedLabel = if (state.activeTab == Tab.COLLECTIONS) {
+            val id = tabbedListPanel.selectedNodeId
+            state.collections.firstOrNull { it.uid == id }?.let { "collection: ${it.name}" }
+        } else {
+            state.environments.getOrNull(tabbedListPanel.selectedIndex)?.let { "environment: ${it.name}" }
+        }
+        return ChatContext(
+            workspaceName = workspace?.name,
+            workspaceId = workspace?.id,
+            highlightedLabel = highlightedLabel
+        )
     }
 
     private fun applyState(state: AppState) {
@@ -231,9 +276,9 @@ class App(
 
         hintLabel.text = when {
             gridFocused -> "  [esc] back to list  ^N add key  ^D delete key"
-            state.activeTab == Tab.ENVIRONMENTS -> "  [space] select  [tab] edit  ^N new  [←][→] tabs  r-refresh  q-quit"
-            state.activeTab == Tab.COLLECTIONS -> "  [enter] expand/collapse  [←][→] tabs  r-refresh  q-quit"
-            else -> "  [←][→] tabs  r-refresh  q-quit"
+            state.activeTab == Tab.ENVIRONMENTS -> "  [space] select  [tab] edit  ^N new  [←][→] tabs  ^K chat  r-refresh  q-quit"
+            state.activeTab == Tab.COLLECTIONS -> "  [enter] expand/collapse  [←][→] tabs  ^K chat  r-refresh  q-quit"
+            else -> "  [←][→] tabs  ^K chat  r-refresh  q-quit"
         }
 
         statusBar.setText(if (state.loading) "Loading..." else state.statusMessage)

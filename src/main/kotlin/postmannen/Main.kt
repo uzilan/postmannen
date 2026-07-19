@@ -9,9 +9,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import postmannen.service.CachingPostmanApiService
+import postmannen.service.ClaudeCliSessionImpl
 import postmannen.service.PostmanApiServiceImpl
 import postmannen.ui.App
 import postmannen.viewmodel.AppViewModel
+import postmannen.viewmodel.ChatViewModel
 import kotlin.system.exitProcess
 
 fun main() = runBlocking {
@@ -29,10 +31,11 @@ fun main() = runBlocking {
 
     val scope = CoroutineScope(Dispatchers.Default)
     val viewModel = AppViewModel(CachingPostmanApiService(PostmanApiServiceImpl(apiKey)), scope)
+    val chatViewModel = ChatViewModel(ClaudeCliSessionImpl(apiKey), onWorkspaceMutated = viewModel::refreshWorkspace, scope = scope)
 
     viewModel.loadWorkspaces()
 
-    App(gui, screen, viewModel, scope).run()
+    App(gui, screen, viewModel, chatViewModel, scope).run()
 
     scope.cancel()
     screen.stopScreen()
