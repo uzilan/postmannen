@@ -30,6 +30,9 @@ class App(
     private val workspaceDropdown = WorkspaceDropdown()
     private val tabbedListPanel = TabbedListPanel()
     private val detailPanel = DetailPanel()
+    private val detailPanelBordered = detailPanel.withBorder(Borders.singleLine())
+    private val centerPanel = Panel(LinearLayout(Direction.HORIZONTAL))
+    private var detailPanelVisible = false
     private val statusBar = StatusBar()
     private val hintLabel = Label("")
     private val window = BasicWindow("postmannen")
@@ -45,9 +48,7 @@ class App(
         topPanel.addComponent(Label("Workspace:"))
         topPanel.addComponent(workspaceDropdown)
         root.addComponent(topPanel, BorderLayout.Location.TOP)
-        val centerPanel = Panel(LinearLayout(Direction.HORIZONTAL))
         centerPanel.addComponent(tabbedListPanel.withBorder(Borders.singleLine()))
-        centerPanel.addComponent(detailPanel.withBorder(Borders.singleLine()))
         root.addComponent(centerPanel, BorderLayout.Location.CENTER)
 
         val bottomPanel = Panel(LinearLayout(Direction.VERTICAL))
@@ -156,6 +157,12 @@ class App(
             if (detail == null) DetailContent.Loading else DetailContent.Variables(detail.variables)
         }
         detailPanel.applyContent(content)
+
+        val shouldShowDetailPanel = state.collections.isNotEmpty()
+        if (shouldShowDetailPanel != detailPanelVisible) {
+            detailPanelVisible = shouldShowDetailPanel
+            if (shouldShowDetailPanel) centerPanel.addComponent(detailPanelBordered) else centerPanel.removeComponent(detailPanelBordered)
+        }
     }
 
     private fun applyState(state: AppState) {
