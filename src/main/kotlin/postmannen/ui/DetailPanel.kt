@@ -20,10 +20,13 @@ class DetailPanel : Panel(LinearLayout(Direction.VERTICAL)) {
         lastContent = content
         removeAllComponents()
         when (content) {
-            is DetailContent.None -> {}
+            is DetailContent.None -> addComponent(Label(""))
             is DetailContent.Loading -> addComponent(Label("Loading..."))
             is DetailContent.Variables -> {
-                if (content.variables.isEmpty()) return
+                if (content.variables.isEmpty()) {
+                    addComponent(Label(""))
+                    return
+                }
                 addComponent(Label("Variables"))
                 content.variables.forEach { addComponent(Label("${it.key} = ${it.value}")) }
             }
