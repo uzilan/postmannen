@@ -182,16 +182,16 @@ export default function App() {
       {statusMessage && <Typography color="error">{statusMessage}</Typography>}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Box sx={{ width: '30%', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-          {activeTab === 'collections' && (
-            <Box
-              component="fieldset"
-              sx={{ borderColor: 'divider', borderRadius: 1, m: 1, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-            >
-              <Box component="legend" sx={{ px: 1 }}>
-                Collections
-              </Box>
-              <Box sx={{ overflow: 'auto', flex: 1 }}>
-                {collections.map((c) => {
+          <Box
+            component="fieldset"
+            sx={{ borderColor: 'divider', borderRadius: 1, m: 1, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+          >
+            <Box component="legend" sx={{ px: 1 }}>
+              {activeTab === 'collections' ? 'Collections' : 'Environments'}
+            </Box>
+            <Box sx={{ overflow: 'auto', flex: 1 }}>
+              {activeTab === 'collections' &&
+                collections.map((c) => {
                   const detail = collectionDetails.get(c.uid)
                   return detail ? (
                     <CollectionTree
@@ -201,28 +201,27 @@ export default function App() {
                     />
                   ) : null
                 })}
-              </Box>
+              {activeTab === 'environments' && (
+                <>
+                  <Button onClick={() => setCreateDialogOpen(true)}>New Environment</Button>
+                  <EnvironmentList
+                    environments={environments}
+                    highlightedId={highlightedEnvironmentId}
+                    markedIds={markedEnvironmentIds}
+                    onHighlight={setHighlightedEnvironmentId}
+                    onToggleMark={(id) =>
+                      setMarkedEnvironmentIds((prev) => {
+                        const next = new Set(prev)
+                        if (next.has(id)) next.delete(id)
+                        else next.add(id)
+                        return next
+                      })
+                    }
+                  />
+                </>
+              )}
             </Box>
-          )}
-          {activeTab === 'environments' && (
-            <>
-              <Button onClick={() => setCreateDialogOpen(true)}>New Environment</Button>
-              <EnvironmentList
-                environments={environments}
-                highlightedId={highlightedEnvironmentId}
-                markedIds={markedEnvironmentIds}
-                onHighlight={setHighlightedEnvironmentId}
-                onToggleMark={(id) =>
-                  setMarkedEnvironmentIds((prev) => {
-                    const next = new Set(prev)
-                    if (next.has(id)) next.delete(id)
-                    else next.add(id)
-                    return next
-                  })
-                }
-              />
-            </>
-          )}
+          </Box>
         </Box>
         <Box sx={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <DetailPanel
