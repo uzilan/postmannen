@@ -80,6 +80,16 @@ class AppViewModel(
         }
     }
 
+    fun createEnvironment(name: String) {
+        if (name.isBlank()) return
+        val workspace = _state.value.workspaces.getOrNull(_state.value.selectedWorkspaceIndex) ?: return
+        scope.launch {
+            service.createEnvironment(workspace.id, name)
+                .onSuccess { env -> update { copy(environments = environments + env) } }
+                .onFailure { e -> update { copy(statusMessage = "Error: ${e.message}") } }
+        }
+    }
+
     fun setActiveTab(tab: Tab) {
         update { copy(activeTab = tab) }
     }

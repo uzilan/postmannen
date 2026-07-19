@@ -567,4 +567,54 @@ class AppViewModelTest {
         assertTrue(staging.values.none { it.key == "BASE_URL" })
         assertEquals("changed_key_value", staging.values.first { it.key == "API_KEY" }.value)
     }
+
+    @Test
+    fun `createEnvironment appends the new environment on success`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        val before = vm.state.value.environments
+        fake.createEnvironmentResult = Result.success(
+            postmannen.model.Environment(id = "env-9", name = "QA", uid = "env-9-uid")
+        )
+
+        vm.createEnvironment("QA")
+        advanceUntilIdle()
+
+        assertEquals(before + postmannen.model.Environment(id = "env-9", name = "QA", uid = "env-9-uid"), vm.state.value.environments)
+        assertEquals("ws-1", fake.lastCreatedEnvironmentWorkspaceId)
+        assertEquals("QA", fake.lastCreatedEnvironmentName)
+    }
+
+    @Test
+    fun `createEnvironment with a blank name is a no-op`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        val before = vm.state.value.environments
+
+        vm.createEnvironment("   ")
+        advanceUntilIdle()
+
+        assertEquals(before, vm.state.value.environments)
+        assertEquals(null, fake.lastCreatedEnvironmentName)
+    }
+
+    @Test
+    fun `createEnvironment on failure sets status message and leaves environments untouched`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        val before = vm.state.value.environments
+        fake.createEnvironmentResult = Result.failure(RuntimeException("boom"))
+
+        vm.createEnvironment("QA")
+        advanceUntilIdle()
+
+        assertEquals(before, vm.state.value.environments)
+        assertTrue(vm.state.value.statusMessage.contains("boom"))
+    }
 }
