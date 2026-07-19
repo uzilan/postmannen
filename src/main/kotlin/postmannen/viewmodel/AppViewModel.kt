@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import postmannen.model.AppState
+import postmannen.model.EnvironmentValue
 import postmannen.model.Tab
 import postmannen.service.PostmanApiService
 
@@ -110,5 +111,44 @@ class AppViewModel(
 
     fun closeComparison() {
         update { copy(comparisonVisible = false) }
+    }
+
+    fun updateEnvironmentValue(environmentUid: String, key: String, newValue: String) {
+        val current = _state.value.comparisonDetails.find { it.uid == environmentUid } ?: return
+        val existingIndex = current.values.indexOfFirst { it.key == key }
+        val newValues = if (existingIndex >= 0) {
+            current.values.toMutableList().also { it[existingIndex] = it[existingIndex].copy(value = newValue) }
+        } else {
+            current.values + EnvironmentValue(key = key, value = newValue, enabled = true, type = "default")
+        }
+        val updatedDetail = current.copy(values = newValues)
+        scope.launch {
+            service.updateEnvironment(updatedDetail)
+                .onSuccess {
+                    update { copy(comparisonDetails = comparisonDetails.map { if (it.uid == environmentUid) updatedDetail else it }) }
+                }
+                .onFailure { e ->
+                    update { copy(statusMessage = "Error: ${e.message}") }
+                }
+        }
+    }
+
+    fun toggleEnvironmentValueEnabled(environmentUid: String, key: String) {
+        val current = _state.value.comparisonDetails.find { it.uid == environmentUid } ?: return
+        val existingIndex = current.values.indexOfFirst { it.key == key }
+        if (existingIndex < 0) return
+        val newValues = current.values.toMutableList().also {
+            it[existingIndex] = it[existingIndex].copy(enabled = !it[existingIndex].enabled)
+        }
+        val updatedDetail = current.copy(values = newValues)
+        scope.launch {
+            service.updateEnvironment(updatedDetail)
+                .onSuccess {
+                    update { copy(comparisonDetails = comparisonDetails.map { if (it.uid == environmentUid) updatedDetail else it }) }
+                }
+                .onFailure { e ->
+                    update { copy(statusMessage = "Error: ${e.message}") }
+                }
+        }
     }
 }

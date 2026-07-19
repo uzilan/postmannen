@@ -220,4 +220,112 @@ class AppViewModelTest {
         advanceUntilIdle()
         assertEquals(emptySet(), vm.state.value.selectedEnvironmentIds)
     }
+
+    @Test
+    fun `updateEnvironmentValue replaces an existing entry's value and preserves enabled and type`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        vm.toggleEnvironmentSelection("env-1")
+        vm.toggleEnvironmentSelection("env-2")
+        vm.openComparison()
+        advanceUntilIdle()
+        vm.updateEnvironmentValue("env-1-uid", "BASE_URL", "https://new-staging.example.com")
+        advanceUntilIdle()
+        val updated = vm.state.value.comparisonDetails.first { it.uid == "env-1-uid" }
+        val entry = updated.values.first { it.key == "BASE_URL" }
+        assertEquals("https://new-staging.example.com", entry.value)
+        assertTrue(entry.enabled)
+        assertEquals("default", entry.type)
+    }
+
+    @Test
+    fun `updateEnvironmentValue on a missing key appends a new enabled entry`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        vm.toggleEnvironmentSelection("env-1")
+        vm.toggleEnvironmentSelection("env-2")
+        vm.openComparison()
+        advanceUntilIdle()
+        vm.updateEnvironmentValue("env-2-uid", "API_KEY", "prod_xxx")
+        advanceUntilIdle()
+        val updated = vm.state.value.comparisonDetails.first { it.uid == "env-2-uid" }
+        val entry = updated.values.first { it.key == "API_KEY" }
+        assertEquals("prod_xxx", entry.value)
+        assertTrue(entry.enabled)
+        assertEquals("default", entry.type)
+    }
+
+    @Test
+    fun `toggleEnvironmentValueEnabled flips only the targeted entry`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        vm.toggleEnvironmentSelection("env-1")
+        vm.toggleEnvironmentSelection("env-2")
+        vm.openComparison()
+        advanceUntilIdle()
+        vm.toggleEnvironmentValueEnabled("env-1-uid", "BASE_URL")
+        advanceUntilIdle()
+        val updated = vm.state.value.comparisonDetails.first { it.uid == "env-1-uid" }
+        assertFalse(updated.values.first { it.key == "BASE_URL" }.enabled)
+        assertTrue(updated.values.first { it.key == "API_KEY" }.enabled)
+    }
+
+    @Test
+    fun `toggleEnvironmentValueEnabled on a missing key is a no-op`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        vm.toggleEnvironmentSelection("env-1")
+        vm.toggleEnvironmentSelection("env-2")
+        vm.openComparison()
+        advanceUntilIdle()
+        val before = vm.state.value.comparisonDetails
+        vm.toggleEnvironmentValueEnabled("env-2-uid", "API_KEY")
+        advanceUntilIdle()
+        assertEquals(before, vm.state.value.comparisonDetails)
+        assertEquals(null, fake.lastUpdatedEnvironmentDetail)
+    }
+
+    @Test
+    fun `updateEnvironmentValue on failure leaves comparisonDetails untouched and surfaces error`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        vm.toggleEnvironmentSelection("env-1")
+        vm.toggleEnvironmentSelection("env-2")
+        vm.openComparison()
+        advanceUntilIdle()
+        val before = vm.state.value.comparisonDetails
+        fake.updateEnvironmentResult = Result.failure(RuntimeException("save failed"))
+        vm.updateEnvironmentValue("env-1-uid", "BASE_URL", "https://changed.example.com")
+        advanceUntilIdle()
+        assertEquals(before, vm.state.value.comparisonDetails)
+        assertTrue(vm.state.value.statusMessage.contains("save failed"))
+    }
+
+    @Test
+    fun `toggleEnvironmentValueEnabled on failure leaves comparisonDetails untouched and surfaces error`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        vm.toggleEnvironmentSelection("env-1")
+        vm.toggleEnvironmentSelection("env-2")
+        vm.openComparison()
+        advanceUntilIdle()
+        val before = vm.state.value.comparisonDetails
+        fake.updateEnvironmentResult = Result.failure(RuntimeException("toggle failed"))
+        vm.toggleEnvironmentValueEnabled("env-1-uid", "BASE_URL")
+        advanceUntilIdle()
+        assertEquals(before, vm.state.value.comparisonDetails)
+        assertTrue(vm.state.value.statusMessage.contains("toggle failed"))
+    }
 }
