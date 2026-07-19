@@ -42,6 +42,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatSessionId, setChatSessionId] = useState<string | null>(null)
   const [chatSending, setChatSending] = useState(false)
+  const [refreshingWorkspace, setRefreshingWorkspace] = useState(false)
 
   useEffect(() => {
     setDetailContent({ kind: 'none' })
@@ -213,8 +214,13 @@ export default function App() {
         // The chat's MCP tools call Postman's API directly, bypassing our own
         // CachingPostmanApiService — so a plain refetch would just return our
         // stale cache. Invalidate it server-side first.
-        await refreshWorkspace(selectedWorkspaceId)
-        loadWorkspaceData(selectedWorkspaceId)
+        setRefreshingWorkspace(true)
+        try {
+          await refreshWorkspace(selectedWorkspaceId)
+          await loadWorkspaceData(selectedWorkspaceId)
+        } finally {
+          setRefreshingWorkspace(false)
+        }
       }
     } catch (e) {
       setChatMessages((prev) => [
@@ -233,6 +239,7 @@ export default function App() {
         <TabBar active={activeTab} onChange={setActiveTab} />
       </Box>
       {statusMessage && <Typography color="error">{statusMessage}</Typography>}
+      {refreshingWorkspace && <Typography color="text.secondary">Refreshing workspace…</Typography>}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Box sx={{ width: '30%', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <Box
