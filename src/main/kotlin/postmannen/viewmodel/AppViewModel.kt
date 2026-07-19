@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import postmannen.model.AppState
+import postmannen.model.CollectionNode
 import postmannen.model.Environment
 import postmannen.model.EnvironmentDetail
 import postmannen.model.EnvironmentValue
@@ -73,9 +74,11 @@ class AppViewModel(
                         val details = results.mapNotNull { (_, result) -> result.getOrNull() }
                         val failedNames = results.filter { (_, result) -> result.isFailure }
                             .mapNotNull { (uid, _) -> collections.firstOrNull { it.uid == uid }?.name }
+                        val folderIds = details.flatMap { detail -> collectFolderIds(detail.uid, detail.items) }.toSet()
                         update {
                             copy(
                                 collectionDetails = details,
+                                collapsedNodeIds = collapsedNodeIds + folderIds,
                                 statusMessage = if (failedNames.isNotEmpty()) "Error loading tree for: ${failedNames.joinToString(", ")}" else statusMessage
                             )
                         }
@@ -109,6 +112,20 @@ class AppViewModel(
                 .onFailure { e -> update { copy(statusMessage = "Error: ${e.message}") } }
         }
     }
+
+    // Position-based path, matching TabbedListPanel's flattenChildren scheme exactly —
+    // both must agree on node ids, or a folder collapsed here won't match the row the
+    // UI tries to toggle.
+    private fun collectFolderIds(parentId: String, nodes: List<CollectionNode>): List<String> =
+        nodes.flatMapIndexed { i, node ->
+            when (node) {
+                is CollectionNode.Folder -> {
+                    val id = "$parentId/$i"
+                    listOf(id) + collectFolderIds(id, node.children)
+                }
+                is CollectionNode.RequestItem -> emptyList()
+            }
+        }
 
     fun toggleNodeCollapsed(nodeId: String) {
         update {

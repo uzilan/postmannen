@@ -101,7 +101,7 @@ class AppViewModelTest {
             ),
             vm.state.value.collectionDetails
         )
-        assertEquals(setOf("col-1-uid", "col-2-uid"), vm.state.value.collapsedNodeIds)
+        assertEquals(setOf("col-1-uid", "col-2-uid", "col-1-uid/0"), vm.state.value.collapsedNodeIds)
     }
 
     @Test
