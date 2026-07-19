@@ -23,6 +23,7 @@ class TabbedListPanel : Panel(LinearLayout(Direction.VERTICAL)) {
 
     @Volatile var onSpaceKey: (() -> Unit)? = null
     @Volatile var onEnterKey: (() -> Unit)? = null
+    @Volatile var onTabKey: (() -> Unit)? = null
 
     // Arrow-key navigation moves Lanterna's internal selectedIndex directly,
     // with no listener hook of its own — so anything outside this class that
@@ -38,6 +39,10 @@ class TabbedListPanel : Panel(LinearLayout(Direction.VERTICAL)) {
             }
             if (key.keyType == KeyType.Enter) {
                 onEnterKey?.invoke()
+                return Interactable.Result.HANDLED
+            }
+            if (key.keyType == KeyType.Tab) {
+                onTabKey?.invoke()
                 return Interactable.Result.HANDLED
             }
             val result = super.handleKeyStroke(key)

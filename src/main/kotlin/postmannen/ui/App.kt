@@ -30,18 +30,23 @@ class App(
 ) {
     private val workspaceDropdown = WorkspaceDropdown()
     private val tabbedListPanel = TabbedListPanel()
-    private val detailPanel = DetailPanel()
+    private val detailPanel = DetailPanel(
+        gui = gui,
+        onValueChanged = { uid, key, newValue -> viewModel.updateEnvironmentValue(uid, key, newValue) },
+        onEnabledToggled = { uid, key -> viewModel.toggleEnvironmentValueEnabled(uid, key) },
+        onKeyRenamed = { oldKey, newKey -> viewModel.renameEnvironmentKey(oldKey, newKey) },
+        onKeyDeleted = { key -> viewModel.deleteEnvironmentKey(key) }
+    )
     private val detailPanelBordered = detailPanel.withBorder(Borders.singleLine())
     private val centerPanel = Panel(LinearLayout(Direction.HORIZONTAL))
     private var detailPanelVisible = false
     private val statusBar = StatusBar()
     private val hintLabel = Label("")
     private val window = BasicWindow("postmannen")
-    private var comparisonWindow: ComparisonOverlay? = null
-    private var comparisonWindowUids: Set<String> = emptySet()
     private var namePromptWindow: NamePromptOverlay? = null
     private var focusPendingForWorkspaceIndex: Int? = null
     private var collectionsBeforeSwitch: List<Collection> = emptyList()
+    private var gridFocused = false
 
     fun run() {
         window.setHints(setOf(Window.Hint.FULL_SCREEN, Window.Hint.NO_DECORATIONS))
@@ -67,6 +72,7 @@ class App(
                 collectionsBeforeSwitch = viewModel.state.value.collections
                 viewModel.selectWorkspace(selectedIndex)
                 focusPendingForWorkspaceIndex = selectedIndex
+                gridFocused = false
             }
         }
 
@@ -85,6 +91,13 @@ class App(
             }
         }
 
+        tabbedListPanel.onTabKey = {
+            if (viewModel.state.value.activeTab == Tab.ENVIRONMENTS && detailPanel.gridIsFocusable) {
+                detailPanel.focusGrid()
+                gridFocused = true
+            }
+        }
+
         tabbedListPanel.onSelectionMaybeChanged = { refreshDetailPanel() }
 
         window.addWindowListener(object : WindowListenerAdapter() {
@@ -98,25 +111,27 @@ class App(
                         viewModel.refreshWorkspace()
                         hasBeenHandled.set(true)
                     }
+                    keyStroke.keyType == KeyType.Escape && gridFocused -> {
+                        tabbedListPanel.focusList()
+                        gridFocused = false
+                        hasBeenHandled.set(true)
+                    }
                     keyStroke.keyType == KeyType.ArrowLeft || keyStroke.keyType == KeyType.ArrowRight -> {
                         val next = if (viewModel.state.value.activeTab == Tab.COLLECTIONS) Tab.ENVIRONMENTS else Tab.COLLECTIONS
                         viewModel.setActiveTab(next)
+                        gridFocused = false
                         hasBeenHandled.set(true)
                     }
-                    keyStroke.keyType == KeyType.Character && keyStroke.character == 'v' && viewModel.state.value.activeTab == Tab.ENVIRONMENTS -> {
-                        viewModel.state.value.environments.getOrNull(tabbedListPanel.selectedIndex)?.let {
-                            viewModel.viewEnvironment(it.id)
+                    keyStroke.keyType == KeyType.Character && keyStroke.character == 'n' && keyStroke.isCtrlDown -> {
+                        if (gridFocused) {
+                            detailPanel.handleAddDeleteShortcut(keyStroke)
+                        } else if (viewModel.state.value.activeTab == Tab.ENVIRONMENTS && namePromptWindow == null) {
+                            openNamePrompt()
                         }
                         hasBeenHandled.set(true)
                     }
-                    keyStroke.keyType == KeyType.Character && keyStroke.character == 'c' && viewModel.state.value.activeTab == Tab.ENVIRONMENTS -> {
-                        viewModel.openComparison()
-                        hasBeenHandled.set(true)
-                    }
-                    keyStroke.keyType == KeyType.Character && keyStroke.character == 'n' && keyStroke.isCtrlDown &&
-                        viewModel.state.value.activeTab == Tab.ENVIRONMENTS && namePromptWindow == null &&
-                        !viewModel.state.value.comparisonVisible -> {
-                        openNamePrompt()
+                    keyStroke.keyType == KeyType.Character && keyStroke.character == 'd' && keyStroke.isCtrlDown && gridFocused -> {
+                        detailPanel.handleAddDeleteShortcut(keyStroke)
                         hasBeenHandled.set(true)
                     }
                 }
@@ -157,17 +172,32 @@ class App(
 
     private fun refreshDetailPanel() {
         val state = viewModel.state.value
-        val highlightedId = tabbedListPanel.selectedNodeId
-        val collection = state.collections.firstOrNull { it.uid == highlightedId }
-        val content = if (collection == null) {
-            DetailContent.None
+        val content: DetailContent
+        if (state.activeTab == Tab.COLLECTIONS) {
+            val highlightedId = tabbedListPanel.selectedNodeId
+            val collection = state.collections.firstOrNull { it.uid == highlightedId }
+            content = if (collection == null) {
+                DetailContent.None
+            } else {
+                val detail = state.collectionDetails.firstOrNull { it.uid == collection.uid }
+                if (detail == null) DetailContent.Loading else DetailContent.CollectionVariables(detail.variables)
+            }
         } else {
-            val detail = state.collectionDetails.firstOrNull { it.uid == collection.uid }
-            if (detail == null) DetailContent.Loading else DetailContent.Variables(detail.variables)
+            val highlightedId = state.environments.getOrNull(tabbedListPanel.selectedIndex)?.id
+            viewModel.refreshEnvironmentPanel(highlightedId)
+            content = if (state.environmentPanelDetails.isEmpty()) DetailContent.None else DetailContent.Environments(state.environmentPanelDetails)
         }
-        detailPanel.applyContent(content)
+        val rebuiltGrid = detailPanel.applyContent(content)
+        if (rebuiltGrid && gridFocused) {
+            if (detailPanel.gridIsFocusable) {
+                detailPanel.focusGrid()
+            } else {
+                tabbedListPanel.focusList()
+                gridFocused = false
+            }
+        }
 
-        val shouldShowDetailPanel = state.collections.isNotEmpty()
+        val shouldShowDetailPanel = if (state.activeTab == Tab.COLLECTIONS) state.collections.isNotEmpty() else state.environments.isNotEmpty()
         if (shouldShowDetailPanel != detailPanelVisible) {
             detailPanelVisible = shouldShowDetailPanel
             if (shouldShowDetailPanel) centerPanel.addComponent(detailPanelBordered) else centerPanel.removeComponent(detailPanelBordered)
@@ -202,41 +232,12 @@ class App(
         }
 
         hintLabel.text = when {
-            state.comparisonVisible -> "  [esc] close  ^N add key  ^D delete key"
-            state.activeTab == Tab.ENVIRONMENTS -> "  [space] select  [v] view  [c] compare (${state.selectedEnvironmentIds.size})  ^N new  [←][→] tabs  r-refresh  q-quit"
+            gridFocused -> "  [esc] back to list  ^N add key  ^D delete key"
+            state.activeTab == Tab.ENVIRONMENTS -> "  [space] select  [tab] edit  ^N new  [←][→] tabs  r-refresh  q-quit"
             state.activeTab == Tab.COLLECTIONS -> "  [enter] expand/collapse  [←][→] tabs  r-refresh  q-quit"
             else -> "  [←][→] tabs  r-refresh  q-quit"
         }
 
         statusBar.setText(if (state.loading) "Loading..." else state.statusMessage)
-
-        val comparisonUids = state.comparisonDetails.map { it.uid }.toSet()
-        if (state.comparisonVisible && (comparisonWindow == null || comparisonUids != comparisonWindowUids)) {
-            // The overlay's columns/rows are fixed at construction time from
-            // initialDetails (see ComparisonOverlay.applyDetails's doc comment) — if
-            // the set of environments being shown changes (e.g. [v]iewing a different
-            // single environment right after a [c]ompare), patching in place would
-            // leave stale columns/keys from the environments no longer in view. Rebuild
-            // the window whenever the uid set changes, not just on the visibility edge.
-            comparisonWindow?.close()
-            val win = ComparisonOverlay(
-                gui = gui,
-                initialDetails = state.comparisonDetails,
-                onValueChanged = { uid, key, newValue -> viewModel.updateEnvironmentValue(uid, key, newValue) },
-                onEnabledToggled = { uid, key -> viewModel.toggleEnvironmentValueEnabled(uid, key) },
-                onKeyRenamed = { oldKey, newKey -> viewModel.renameEnvironmentKey(oldKey, newKey) },
-                onKeyDeleted = { key -> viewModel.deleteEnvironmentKey(key) },
-                onDismiss = { viewModel.closeComparison() }
-            )
-            comparisonWindow = win
-            comparisonWindowUids = comparisonUids
-            gui.addWindow(win)
-        } else if (!state.comparisonVisible && comparisonWindow != null) {
-            comparisonWindow?.close()
-            comparisonWindow = null
-            comparisonWindowUids = emptySet()
-        } else if (state.comparisonVisible && comparisonWindow != null) {
-            comparisonWindow?.applyDetails(state.comparisonDetails)
-        }
     }
 }
