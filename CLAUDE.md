@@ -82,6 +82,16 @@ service (PostmanApiService) → viewmodel (AppViewModel) → ui (App)
   `(box.renderer as? TextBox.DefaultTextBoxRenderer)?.setUnusedSpaceCharacter(' ')`
   right after construction — see `ComparisonOverlay`'s `keyBox`/`valueBox`
   and `NamePromptOverlay`'s `nameBox` for the pattern.
+  Separately, Lanterna's default `TextBox.handleKeyStroke` claims `Enter`
+  (moves focus to the next component) and `Ctrl`+character combos as
+  literal text input, so those keystrokes never reach the containing
+  window's `onUnhandledInput` while the box has focus — which is most of
+  the time, since these boxes take focus on open. Any `TextBox` that needs
+  to react to `Enter`, `Escape`, or a `Ctrl`+key shortcut must override
+  `handleKeyStroke` on the box itself and intercept before falling through
+  to `super.handleKeyStroke(...)`; a window-level listener alone is not
+  enough. See `NamePromptOverlay.nameBox` (`Enter`/`Escape`) and
+  `ComparisonOverlay`'s `handleAddDeleteShortcut` (`Ctrl+N`/`Ctrl+D`).
 - **Service layer**: `PostmanApiService` is the interface; `PostmanApiServiceImpl`
   is the real Ktor-backed implementation (one shared `HttpClient` with
   `X-Api-Key` auth baked into `defaultRequest`); `FakePostmanApiService`
