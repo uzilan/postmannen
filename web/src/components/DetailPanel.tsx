@@ -24,20 +24,25 @@ export function DetailPanel(props: {
 
   if (content.kind === 'collectionVariables') {
     return (
-      <Box component="fieldset" sx={{ borderColor: 'divider', borderRadius: 1, m: 1 }}>
+      <Box
+        component="fieldset"
+        sx={{ borderColor: 'divider', borderRadius: 1, m: 1, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      >
         <Box component="legend" sx={{ px: 1 }}>
           Variables
         </Box>
-        <Table>
-          <TableBody>
-            {content.variables.map((v) => (
-              <TableRow key={v.key}>
-                <TableCell>{v.key}</TableCell>
-                <TableCell>{v.value}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <Box sx={{ overflow: 'auto', flex: 1 }}>
+          <Table>
+            <TableBody>
+              {content.variables.map((v) => (
+                <TableRow key={v.key}>
+                  <TableCell>{v.key}</TableCell>
+                  <TableCell>{v.value}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Box>
       </Box>
     )
   }

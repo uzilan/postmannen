@@ -213,7 +213,7 @@ export default function App() {
             </>
           )}
         </Box>
-        <Box sx={{ flex: 1, overflow: 'auto' }}>
+        <Box sx={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <DetailPanel
             content={detailContent}
             onValueChange={handleValueChange}
