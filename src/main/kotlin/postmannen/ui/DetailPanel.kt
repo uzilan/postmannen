@@ -6,13 +6,27 @@ import com.googlecode.lanterna.gui2.LinearLayout
 import com.googlecode.lanterna.gui2.Panel
 import postmannen.model.CollectionVariable
 
-class DetailPanel : Panel(LinearLayout(Direction.VERTICAL)) {
-    private var lastVariables: List<CollectionVariable> = emptyList()
+sealed class DetailContent {
+    object None : DetailContent()
+    object Loading : DetailContent()
+    data class Variables(val variables: List<CollectionVariable>) : DetailContent()
+}
 
-    fun applyVariables(variables: List<CollectionVariable>) {
-        if (variables == lastVariables) return
-        lastVariables = variables
+class DetailPanel : Panel(LinearLayout(Direction.VERTICAL)) {
+    private var lastContent: DetailContent = DetailContent.None
+
+    fun applyContent(content: DetailContent) {
+        if (content == lastContent) return
+        lastContent = content
         removeAllComponents()
-        variables.forEach { addComponent(Label("${it.key} = ${it.value}")) }
+        when (content) {
+            is DetailContent.None -> {}
+            is DetailContent.Loading -> addComponent(Label("Loading..."))
+            is DetailContent.Variables -> {
+                if (content.variables.isEmpty()) return
+                addComponent(Label("Variables"))
+                content.variables.forEach { addComponent(Label("${it.key} = ${it.value}")) }
+            }
+        }
     }
 }

@@ -148,10 +148,14 @@ class App(
     private fun refreshDetailPanel() {
         val state = viewModel.state.value
         val highlightedId = tabbedListPanel.selectedNodeId
-        val highlightedVariables = state.collections.firstOrNull { it.uid == highlightedId }
-            ?.let { collection -> state.collectionDetails.firstOrNull { it.uid == collection.uid }?.variables }
-            ?: emptyList()
-        detailPanel.applyVariables(highlightedVariables)
+        val collection = state.collections.firstOrNull { it.uid == highlightedId }
+        val content = if (collection == null) {
+            DetailContent.None
+        } else {
+            val detail = state.collectionDetails.firstOrNull { it.uid == collection.uid }
+            if (detail == null) DetailContent.Loading else DetailContent.Variables(detail.variables)
+        }
+        detailPanel.applyContent(content)
     }
 
     private fun applyState(state: AppState) {
