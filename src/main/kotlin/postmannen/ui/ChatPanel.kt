@@ -40,8 +40,12 @@ class ChatPanel(
 
     init {
         addComponent(Label("Chat"))
-        addComponent(transcriptBox)
-        addComponent(inputBox)
+        // Without Fill+CanGrow, transcriptBox only ever takes its own tiny preferred
+        // size (effectively 1 visible row) no matter how much vertical space this
+        // panel's container actually has — the reply text is there in the state, it's
+        // just clipped out of view.
+        addComponent(transcriptBox, LinearLayout.createLayoutData(LinearLayout.Alignment.Fill, LinearLayout.GrowPolicy.CanGrow))
+        addComponent(inputBox, LinearLayout.createLayoutData(LinearLayout.Alignment.Fill))
         (transcriptBox.renderer as? TextBox.DefaultTextBoxRenderer)?.setUnusedSpaceCharacter(' ')
         (inputBox.renderer as? TextBox.DefaultTextBoxRenderer)?.setUnusedSpaceCharacter(' ')
     }
