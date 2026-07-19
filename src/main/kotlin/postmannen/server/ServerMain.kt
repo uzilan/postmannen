@@ -24,6 +24,7 @@ fun main() {
         install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
         routing {
             workspaceRoutes(service)
+            collectionRoutes(service)
         }
     }.start(wait = true)
 }
