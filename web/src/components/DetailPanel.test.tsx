@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { DetailPanel } from './DetailPanel'
+import { DetailPanel, detailContentLabel } from './DetailPanel'
 import type { DetailContent } from './DetailPanel'
 
 const noopProps = {
@@ -72,5 +72,27 @@ describe('DetailPanel', () => {
     fireEvent.click(screen.getByLabelText('delete row BASE_URL'))
 
     expect(onDeleteKey).toHaveBeenCalledWith('BASE_URL')
+  })
+})
+
+describe('detailContentLabel', () => {
+  it('returns null for none and loading', () => {
+    expect(detailContentLabel({ kind: 'none' })).toBeNull()
+    expect(detailContentLabel({ kind: 'loading' })).toBeNull()
+  })
+
+  it('returns "Variables" for collection variables', () => {
+    expect(detailContentLabel({ kind: 'collectionVariables', variables: [] })).toBe('Variables')
+  })
+
+  it('returns comma-joined environment names for environments', () => {
+    const content = {
+      kind: 'environments' as const,
+      details: [
+        { id: 'env-1', uid: 'env-1-uid', name: 'Staging', values: [] },
+        { id: 'env-2', uid: 'env-2-uid', name: 'Production', values: [] },
+      ],
+    }
+    expect(detailContentLabel(content)).toBe('Staging, Production')
   })
 })

@@ -9,6 +9,12 @@ export type DetailContent =
   | { kind: 'collectionVariables'; variables: CollectionVariable[] }
   | { kind: 'environments'; details: EnvironmentDetail[] }
 
+export function detailContentLabel(content: DetailContent): string | null {
+  if (content.kind === 'collectionVariables') return 'Variables'
+  if (content.kind === 'environments') return content.details.map((d) => d.name).join(', ')
+  return null
+}
+
 export function DetailPanel(props: {
   content: DetailContent
   onValueChange: (environmentUid: string, key: string, newValue: string) => void
@@ -29,7 +35,7 @@ export function DetailPanel(props: {
         sx={{ borderColor: 'divider', borderRadius: 1, m: 1, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
       >
         <Box component="legend" sx={{ px: 1 }}>
-          Variables
+          {detailContentLabel(content)}
         </Box>
         <Box sx={{ overflow: 'auto', flex: 1 }}>
           <Table>
@@ -48,7 +54,6 @@ export function DetailPanel(props: {
   }
 
   const keys = Array.from(new Set(content.details.flatMap((d) => d.values.map((v) => v.key))))
-  const legend = content.details.map((d) => d.name).join(', ')
 
   return (
     <Box
@@ -56,7 +61,7 @@ export function DetailPanel(props: {
       sx={{ borderColor: 'divider', borderRadius: 1, m: 1, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
     >
       <Box component="legend" sx={{ px: 1 }}>
-        {legend}
+        {detailContentLabel(content)}
       </Box>
       <Box sx={{ overflow: 'auto', flex: 1 }}>
         <Table>
