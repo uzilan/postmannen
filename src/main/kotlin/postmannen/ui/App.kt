@@ -127,6 +127,7 @@ class App(
                     keyStroke.keyType == KeyType.Character && keyStroke.character == 'k' && keyStroke.isCtrlDown -> {
                         chatPanel.focusInput()
                         chatFocused = true
+                        gridFocused = false
                         hasBeenHandled.set(true)
                     }
                     keyStroke.keyType == KeyType.ArrowLeft || keyStroke.keyType == KeyType.ArrowRight -> {
