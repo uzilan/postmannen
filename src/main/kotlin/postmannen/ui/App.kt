@@ -89,6 +89,10 @@ class App(
                         window.close()
                         hasBeenHandled.set(true)
                     }
+                    keyStroke.keyType == KeyType.Character && keyStroke.character == 'r' -> {
+                        viewModel.refreshWorkspace()
+                        hasBeenHandled.set(true)
+                    }
                     keyStroke.keyType == KeyType.ArrowLeft || keyStroke.keyType == KeyType.ArrowRight -> {
                         val next = if (viewModel.state.value.activeTab == Tab.COLLECTIONS) Tab.ENVIRONMENTS else Tab.COLLECTIONS
                         viewModel.setActiveTab(next)
@@ -180,9 +184,9 @@ class App(
 
         hintLabel.text = when {
             state.comparisonVisible -> "  [esc] close  ^N add key  ^D delete key"
-            state.activeTab == Tab.ENVIRONMENTS -> "  [space] select  [v] view  [c] compare (${state.selectedEnvironmentIds.size})  ^N new  [←][→] tabs  q-quit"
-            state.activeTab == Tab.COLLECTIONS -> "  [enter] expand/collapse  [←][→] tabs  q-quit"
-            else -> "  [←][→] tabs  q-quit"
+            state.activeTab == Tab.ENVIRONMENTS -> "  [space] select  [v] view  [c] compare (${state.selectedEnvironmentIds.size})  ^N new  [←][→] tabs  r-refresh  q-quit"
+            state.activeTab == Tab.COLLECTIONS -> "  [enter] expand/collapse  [←][→] tabs  r-refresh  q-quit"
+            else -> "  [←][→] tabs  r-refresh  q-quit"
         }
 
         statusBar.setText(if (state.loading) "Loading..." else state.statusMessage)

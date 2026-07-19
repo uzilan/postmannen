@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
+import postmannen.service.CachingPostmanApiService
 import postmannen.service.PostmanApiServiceImpl
 import postmannen.ui.App
 import postmannen.viewmodel.AppViewModel
@@ -27,7 +28,7 @@ fun main() = runBlocking {
     gui.setTheme(LanternaThemes.getRegisteredTheme("businessmachine"))
 
     val scope = CoroutineScope(Dispatchers.Default)
-    val viewModel = AppViewModel(PostmanApiServiceImpl(apiKey), scope)
+    val viewModel = AppViewModel(CachingPostmanApiService(PostmanApiServiceImpl(apiKey)), scope)
 
     viewModel.loadWorkspaces()
 
