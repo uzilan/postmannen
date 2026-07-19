@@ -29,6 +29,7 @@ class App(
 ) {
     private val workspaceDropdown = WorkspaceDropdown()
     private val tabbedListPanel = TabbedListPanel()
+    private val detailPanel = DetailPanel()
     private val statusBar = StatusBar()
     private val hintLabel = Label("")
     private val window = BasicWindow("postmannen")
@@ -44,7 +45,10 @@ class App(
         topPanel.addComponent(Label("Workspace:"))
         topPanel.addComponent(workspaceDropdown)
         root.addComponent(topPanel, BorderLayout.Location.TOP)
-        root.addComponent(tabbedListPanel.withBorder(Borders.singleLine()), BorderLayout.Location.CENTER)
+        val centerPanel = Panel(LinearLayout(Direction.HORIZONTAL))
+        centerPanel.addComponent(tabbedListPanel.withBorder(Borders.singleLine()))
+        centerPanel.addComponent(detailPanel.withBorder(Borders.singleLine()))
+        root.addComponent(centerPanel, BorderLayout.Location.CENTER)
 
         val bottomPanel = Panel(LinearLayout(Direction.VERTICAL))
         bottomPanel.addComponent(statusBar)
@@ -150,6 +154,12 @@ class App(
         }
 
         tabbedListPanel.applyState(state)
+
+        val highlightedId = tabbedListPanel.selectedNodeId
+        val highlightedVariables = state.collections.firstOrNull { it.uid == highlightedId }
+            ?.let { collection -> state.collectionDetails.firstOrNull { it.uid == collection.uid }?.variables }
+            ?: emptyList()
+        detailPanel.applyVariables(highlightedVariables)
 
         hintLabel.text = when {
             state.comparisonVisible -> "  [esc] close  ^N add key  ^D delete key"
