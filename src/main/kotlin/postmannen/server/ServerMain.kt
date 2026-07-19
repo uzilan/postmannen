@@ -25,6 +25,7 @@ fun main() {
         routing {
             workspaceRoutes(service)
             collectionRoutes(service)
+            environmentRoutes(service)
         }
     }.start(wait = true)
 }
