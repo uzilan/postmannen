@@ -1,5 +1,6 @@
 package postmannen.ui
 
+import com.googlecode.lanterna.TerminalSize
 import com.googlecode.lanterna.gui2.BasicWindow
 import com.googlecode.lanterna.gui2.CheckBox
 import com.googlecode.lanterna.gui2.GridLayout
@@ -13,6 +14,8 @@ import com.googlecode.lanterna.input.KeyStroke
 import com.googlecode.lanterna.input.KeyType
 import postmannen.model.EnvironmentDetail
 import java.util.concurrent.atomic.AtomicBoolean
+
+private const val VALUE_COLUMN_WIDTH = 30
 
 class ComparisonOverlay(
     initialDetails: List<EnvironmentDetail>,
@@ -66,6 +69,7 @@ class ComparisonOverlay(
                     }
                 }
                 (textBox.renderer as? TextBox.DefaultTextBoxRenderer)?.setUnusedSpaceCharacter(' ')
+                textBox.preferredSize = TerminalSize(VALUE_COLUMN_WIDTH, 1)
                 textBoxes[cellKey] = textBox
                 panel.addComponent(textBox)
             }
