@@ -34,3 +34,11 @@ export async function getCollectionDetail(uid: string): Promise<CollectionDetail
   if (!response.ok) throw new Error(`getCollectionDetail failed: ${response.status}`)
   return response.json()
 }
+
+export type Environment = { id: string; name: string; uid: string }
+
+export async function getEnvironments(workspaceId: string): Promise<Environment[]> {
+  const response = await fetch(`${BASE_URL}/environments?workspaceId=${workspaceId}`)
+  if (!response.ok) throw new Error(`getEnvironments failed: ${response.status}`)
+  return response.json()
+}
