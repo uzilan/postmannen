@@ -35,19 +35,22 @@ class ClaudeCliSessionImpl(private val postmanApiKey: String) : ClaudeCliSession
                 )
                 sessionId?.let { command += listOf("--resume", it) }
 
-                val process = ProcessBuilder(command).start()
+                val process = ProcessBuilder(command).redirectErrorStream(true).start()
                 currentProcess = process
                 process.outputStream.close()
 
+                val output = StringBuilder()
                 process.inputStream.bufferedReader().useLines { lines ->
-                    lines.filter { it.isNotBlank() }.forEach { line -> parseLine(line, onEvent) }
+                    lines.filter { it.isNotBlank() }.forEach { line ->
+                        output.appendLine(line)
+                        parseLine(line, onEvent)
+                    }
                 }
 
                 val exitCode = process.waitFor()
                 currentProcess = null
                 if (exitCode != 0) {
-                    val stderr = process.errorStream.bufferedReader().readText()
-                    throw IllegalStateException("claude exited with code $exitCode: $stderr")
+                    throw IllegalStateException("claude exited with code $exitCode: $output")
                 }
             }
         }
@@ -76,6 +79,10 @@ class ClaudeCliSessionImpl(private val postmanApiKey: String) : ClaudeCliSession
             }
         }
         val file = File.createTempFile("postmannen-mcp-", ".json")
+        file.setReadable(false, false)
+        file.setReadable(true, true)
+        file.setWritable(false, false)
+        file.setWritable(true, true)
         file.deleteOnExit()
         file.writeText(config.toString())
         mcpConfigFile = file

@@ -1,5 +1,6 @@
 package postmannen.ui
 
+import com.googlecode.lanterna.TerminalSize
 import com.googlecode.lanterna.gui2.BasicWindow
 import com.googlecode.lanterna.gui2.BorderLayout
 import com.googlecode.lanterna.gui2.Borders
@@ -38,10 +39,13 @@ class App(
         onValueChanged = { uid, key, newValue -> viewModel.updateEnvironmentValue(uid, key, newValue) },
         onEnabledToggled = { uid, key -> viewModel.toggleEnvironmentValueEnabled(uid, key) },
         onKeyRenamed = { oldKey, newKey -> viewModel.renameEnvironmentKey(oldKey, newKey) },
-        onKeyDeleted = { key -> viewModel.deleteEnvironmentKey(key) }
+        onKeyDeleted = { key -> viewModel.deleteEnvironmentKey(key) },
+        onChatFocusRequested = { chatPanel.focusInput(); chatFocused = true; gridFocused = false }
     )
     private val detailPanelBordered = detailPanel.withBorder(Borders.singleLine())
-    private val chatPanel = ChatPanel(onSubmit = { text -> chatViewModel.sendMessage(text, buildChatContext()) })
+    private val chatPanel = ChatPanel(onSubmit = { text -> chatViewModel.sendMessage(text, buildChatContext()) }).apply {
+        preferredSize = TerminalSize(30, preferredSize.rows)
+    }
     private val chatPanelBordered = chatPanel.withBorder(Borders.singleLine())
     private val centerPanel = Panel(LinearLayout(Direction.HORIZONTAL))
     private var detailPanelVisible = false
@@ -134,6 +138,7 @@ class App(
                         val next = if (viewModel.state.value.activeTab == Tab.COLLECTIONS) Tab.ENVIRONMENTS else Tab.COLLECTIONS
                         viewModel.setActiveTab(next)
                         gridFocused = false
+                        chatFocused = false
                         hasBeenHandled.set(true)
                     }
                     keyStroke.keyType == KeyType.Character && keyStroke.character == 'n' && keyStroke.isCtrlDown -> {

@@ -181,6 +181,19 @@ service (PostmanApiService) → viewmodel (AppViewModel) → ui (App)
   background/reactive fetches, not a single user-initiated action across
   a small fixed set, so one bad item shouldn't blank everything else.
 
+- **Chat panel**: `ChatViewModel` owns its own `MutableStateFlow<ChatState>`,
+  fully independent of `AppState`/`AppViewModel` — the only link back is a
+  plain `onWorkspaceMutated: () -> Unit` callback. `ClaudeCliSessionImpl`
+  spawns the local `claude` CLI headless (`-p`) with `--mcp-config`
+  pointing at Postman's official MCP server in minimal mode, passing
+  `--resume <sessionId>` for cross-turn continuity — a fresh subprocess
+  per turn, not one long-lived process. Assistant turns that used a
+  write-classified MCP tool (`create_`/`update_`/`delete_`/`put_`/`patch_`
+  prefix) trigger `AppViewModel.refreshWorkspace()`; read-only tools don't.
+  `Ctrl+K` focuses the chat input (tracked via a `chatFocused` flag
+  alongside `gridFocused`); `Escape` returns focus to the list from
+  either.
+
 ## API integration notes
 
 Response shapes were verified against Postman's real API during

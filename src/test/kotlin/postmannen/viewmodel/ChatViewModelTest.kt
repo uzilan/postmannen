@@ -98,6 +98,22 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `sendMessage is a no-op while a turn is already in flight`() = runTest {
+        val fake = FakeClaudeCliSession().apply {
+            events = listOf(ClaudeStreamEvent.TextDelta("first reply"), ClaudeStreamEvent.TurnComplete)
+        }
+        val vm = ChatViewModel(fake, onWorkspaceMutated = {}, scope = this)
+
+        vm.sendMessage("first", ChatContext())
+        vm.sendMessage("second", ChatContext())
+        advanceUntilIdle()
+
+        assertEquals(2, vm.state.value.messages.size)
+        assertEquals(ChatMessage.User("first"), vm.state.value.messages[0])
+        assertEquals("first", fake.lastPrompt)
+    }
+
+    @Test
     fun `blank text is ignored`() = runTest {
         val fake = FakeClaudeCliSession()
         val vm = ChatViewModel(fake, onWorkspaceMutated = {}, scope = this)

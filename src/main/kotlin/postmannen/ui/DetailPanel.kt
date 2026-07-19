@@ -22,7 +22,8 @@ class DetailPanel(
     private val onValueChanged: (environmentUid: String, key: String, newValue: String) -> Unit,
     private val onEnabledToggled: (environmentUid: String, key: String) -> Unit,
     private val onKeyRenamed: (oldKey: String, newKey: String) -> Unit,
-    private val onKeyDeleted: (key: String) -> Unit
+    private val onKeyDeleted: (key: String) -> Unit,
+    private val onChatFocusRequested: () -> Unit
 ) : Panel(LinearLayout(Direction.VERTICAL)) {
     private var lastContent: DetailContent = DetailContent.None
     private var environmentGrid: EnvironmentGridPanel? = null
@@ -59,7 +60,8 @@ class DetailPanel(
                 onValueChanged = onValueChanged,
                 onEnabledToggled = onEnabledToggled,
                 onKeyRenamed = onKeyRenamed,
-                onKeyDeleted = onKeyDeleted
+                onKeyDeleted = onKeyDeleted,
+                onChatFocusRequested = onChatFocusRequested
             )
             environmentGrid = grid
             lastEnvironmentUids = uids

@@ -28,7 +28,8 @@ class EnvironmentGridPanel(
     private val onValueChanged: (environmentUid: String, key: String, newValue: String) -> Unit,
     private val onEnabledToggled: (environmentUid: String, key: String) -> Unit,
     private val onKeyRenamed: (oldKey: String, newKey: String) -> Unit,
-    private val onKeyDeleted: (key: String) -> Unit
+    private val onKeyDeleted: (key: String) -> Unit,
+    private val onChatFocusRequested: () -> Unit
 ) : Panel(GridLayout(1 + initialDetails.size * 2)) {
 
     private class Row(
@@ -74,6 +75,7 @@ class EnvironmentGridPanel(
         return when (key.character) {
             'n' -> { addNewRow(); Interactable.Result.HANDLED }
             'd' -> { deleteFocusedRow(); Interactable.Result.HANDLED }
+            'k' -> { onChatFocusRequested(); Interactable.Result.HANDLED }
             else -> null
         }
     }

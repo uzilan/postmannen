@@ -50,6 +50,8 @@ class ChatPanel(
         if (state.messages != lastMessages) {
             lastMessages = state.messages
             transcriptBox.text = render(state.messages)
+            val lines = transcriptBox.lineCount
+            if (lines > 0) transcriptBox.setCaretPosition(lines - 1, 0)
         }
         inputBox.isReadOnly = state.sending
     }
