@@ -174,4 +174,55 @@ class AppViewModel(
                 }
         }
     }
+
+    fun renameEnvironmentKey(oldKey: String, newKey: String) {
+        if (newKey.isBlank() || newKey == oldKey) return
+        val affected = _state.value.comparisonDetails.filter { detail -> detail.values.any { it.key == oldKey } }
+        if (affected.isEmpty()) return
+
+        val collision = affected.firstOrNull { detail -> detail.values.any { it.key == newKey } }
+        if (collision != null) {
+            update { copy(statusMessage = "Key already exists in ${collision.name}") }
+            return
+        }
+
+        val renamedDetails = affected.map { detail ->
+            val idx = detail.values.indexOfFirst { it.key == oldKey }
+            detail to detail.copy(values = detail.values.toMutableList().also { it[idx] = it[idx].copy(key = newKey) })
+        }
+
+        scope.launch {
+            val renameResults = renamedDetails
+                .map { (original, renamed) -> Triple(original, renamed, scope.async { service.updateEnvironment(renamed) }) }
+                .map { (original, renamed, deferred) -> Triple(original, renamed, deferred.await()) }
+
+            val failed = renameResults.filter { (_, _, result) -> result.isFailure }
+            val succeeded = renameResults.filter { (_, _, result) -> result.isSuccess }
+
+            if (failed.isEmpty()) {
+                val affectedUids = affected.map { it.uid }.toSet()
+                update {
+                    copy(comparisonDetails = comparisonDetails.map { detail ->
+                        if (detail.uid !in affectedUids) return@map detail
+                        val idx = detail.values.indexOfFirst { it.key == oldKey }
+                        if (idx < 0) return@map detail
+                        val mergedValues = detail.values.toMutableList().also { it[idx] = it[idx].copy(key = newKey) }
+                        detail.copy(values = mergedValues)
+                    })
+                }
+                return@launch
+            }
+
+            val rollbackResults = succeeded
+                .map { (original, _, _) -> scope.async { service.updateEnvironment(original) } }
+                .awaitAll()
+
+            val firstFailureMessage = failed.first().third.exceptionOrNull()?.message
+            if (rollbackResults.any { it.isFailure }) {
+                update { copy(statusMessage = "Error: rename failed and rollback also failed — verify these environments directly in Postman") }
+            } else {
+                update { copy(statusMessage = "Error: $firstFailureMessage") }
+            }
+        }
+    }
 }
