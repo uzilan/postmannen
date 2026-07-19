@@ -8,6 +8,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.routing.routing
 import kotlinx.serialization.json.Json
 import postmannen.service.CachingPostmanApiService
+import postmannen.service.ClaudeCliServiceImpl
 import postmannen.service.PostmanApiServiceImpl
 import kotlin.system.exitProcess
 
@@ -19,6 +20,7 @@ fun main() {
     }
 
     val service = CachingPostmanApiService(PostmanApiServiceImpl(apiKey))
+    val claudeService = ClaudeCliServiceImpl(apiKey)
 
     embeddedServer(CIO, port = 8080) {
         install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
@@ -26,6 +28,7 @@ fun main() {
             workspaceRoutes(service)
             collectionRoutes(service)
             environmentRoutes(service)
+            chatRoutes(claudeService)
         }
     }.start(wait = true)
 }
