@@ -142,24 +142,35 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `openComparison with none selected sets status message and does not open`() = runTest {
+    fun `openComparison with fewer than 2 selected sets status message and does not open`() = runTest {
         val vm = AppViewModel(FakePostmanApiService(), this)
+        vm.toggleEnvironmentSelection("env-1")
         vm.openComparison()
         advanceUntilIdle()
-        assertEquals("Select at least 1 environment to view", vm.state.value.statusMessage)
+        assertEquals("Select at least 2 environments to compare", vm.state.value.statusMessage)
         assertFalse(vm.state.value.comparisonVisible)
     }
 
     @Test
-    fun `openComparison with 1 selected fetches its detail and opens`() = runTest {
+    fun `viewEnvironment fetches the given environment's detail and opens the overlay without needing selection`() = runTest {
         val vm = AppViewModel(FakePostmanApiService(), this)
         vm.loadWorkspaces()
         advanceUntilIdle()
-        vm.toggleEnvironmentSelection("env-1")
-        vm.openComparison()
+        vm.viewEnvironment("env-1")
         advanceUntilIdle()
         assertTrue(vm.state.value.comparisonVisible)
         assertEquals(listOf(FakePostmanApiService.FIXTURE_ENVIRONMENT_DETAIL_STAGING), vm.state.value.comparisonDetails)
+        assertEquals(emptySet(), vm.state.value.selectedEnvironmentIds)
+    }
+
+    @Test
+    fun `viewEnvironment with an unknown id is a no-op`() = runTest {
+        val vm = AppViewModel(FakePostmanApiService(), this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        vm.viewEnvironment("does-not-exist")
+        advanceUntilIdle()
+        assertFalse(vm.state.value.comparisonVisible)
     }
 
     @Test

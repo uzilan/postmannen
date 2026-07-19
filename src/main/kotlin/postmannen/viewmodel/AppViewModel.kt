@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import postmannen.model.AppState
+import postmannen.model.Environment
 import postmannen.model.EnvironmentDetail
 import postmannen.model.EnvironmentValue
 import postmannen.model.Tab
@@ -103,11 +104,20 @@ class AppViewModel(
 
     fun openComparison() {
         val selectedIds = _state.value.selectedEnvironmentIds
-        if (selectedIds.isEmpty()) {
-            update { copy(statusMessage = "Select at least 1 environment to view") }
+        if (selectedIds.size < 2) {
+            update { copy(statusMessage = "Select at least 2 environments to compare") }
             return
         }
         val targets = _state.value.environments.filter { it.id in selectedIds }
+        openDetailsOverlay(targets)
+    }
+
+    fun viewEnvironment(id: String) {
+        val target = _state.value.environments.firstOrNull { it.id == id } ?: return
+        openDetailsOverlay(listOf(target))
+    }
+
+    private fun openDetailsOverlay(targets: List<Environment>) {
         scope.launch {
             val results = targets.map { env -> scope.async { service.getEnvironmentDetail(env.uid) } }.awaitAll()
             val firstFailure = results.firstOrNull { it.isFailure }
