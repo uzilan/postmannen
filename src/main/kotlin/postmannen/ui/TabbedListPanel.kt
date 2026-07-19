@@ -24,6 +24,9 @@ class TabbedListPanel : Panel(LinearLayout(Direction.VERTICAL)) {
     @Volatile var onSpaceKey: (() -> Unit)? = null
     @Volatile var onEnterKey: (() -> Unit)? = null
     @Volatile var onTabKey: (() -> Unit)? = null
+    @Volatile var onArrowLeftKey: (() -> Unit)? = null
+    @Volatile var onArrowRightKey: (() -> Unit)? = null
+    @Volatile var onArrowUpAtTop: (() -> Unit)? = null
 
     // Arrow-key navigation moves Lanterna's internal selectedIndex directly,
     // with no listener hook of its own — so anything outside this class that
@@ -43,6 +46,24 @@ class TabbedListPanel : Panel(LinearLayout(Direction.VERTICAL)) {
             }
             if (key.keyType == KeyType.Tab) {
                 onTabKey?.invoke()
+                return Interactable.Result.HANDLED
+            }
+            // Lanterna's window claims unhandled Arrow keys for its own built-in
+            // spatial focus-shift (jumping to whatever's positioned left/right of
+            // this list — the column splitter, detail panel) before onUnhandledInput
+            // ever sees them, same gotcha as the Tab key above. Must intercept here.
+            if (key.keyType == KeyType.ArrowLeft) {
+                onArrowLeftKey?.invoke()
+                return Interactable.Result.HANDLED
+            }
+            if (key.keyType == KeyType.ArrowRight) {
+                onArrowRightKey?.invoke()
+                return Interactable.Result.HANDLED
+            }
+            // Pressing Up already at the top row moves focus back to the workspace
+            // dropdown, mirroring how it's the first thing focused on startup.
+            if (key.keyType == KeyType.ArrowUp && selectedIndex <= 0) {
+                onArrowUpAtTop?.invoke()
                 return Interactable.Result.HANDLED
             }
             val result = super.handleKeyStroke(key)

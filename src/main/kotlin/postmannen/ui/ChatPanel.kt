@@ -2,7 +2,6 @@ package postmannen.ui
 
 import com.googlecode.lanterna.gui2.Direction
 import com.googlecode.lanterna.gui2.Interactable
-import com.googlecode.lanterna.gui2.Label
 import com.googlecode.lanterna.gui2.LinearLayout
 import com.googlecode.lanterna.gui2.Panel
 import com.googlecode.lanterna.gui2.TextBox
@@ -40,7 +39,6 @@ class ChatPanel(
     private var lastWidth: Int = -1
 
     init {
-        addComponent(Label("Chat"))
         // Without Fill+CanGrow, transcriptBox only ever takes its own tiny preferred
         // size (effectively 1 visible row) no matter how much vertical space this
         // panel's container actually has — the reply text is there in the state, it's

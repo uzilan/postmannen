@@ -1,5 +1,6 @@
 package postmannen.ui
 
+import com.googlecode.lanterna.gui2.Border
 import com.googlecode.lanterna.gui2.Direction
 import com.googlecode.lanterna.gui2.Interactable
 import com.googlecode.lanterna.gui2.Label
@@ -15,6 +16,25 @@ sealed class DetailContent {
     object Loading : DetailContent()
     data class CollectionVariables(val variables: List<CollectionVariable>) : DetailContent()
     data class Environments(val details: List<EnvironmentDetail>) : DetailContent()
+}
+
+fun DetailContent.titleFor(): String = when (this) {
+    is DetailContent.None -> "Details"
+    is DetailContent.Loading -> "Details"
+    is DetailContent.CollectionVariables -> "Variables"
+    is DetailContent.Environments -> "Environments"
+}
+
+// Border's title is a private final field on the package-private StandardBorder
+// superclass with no public setter — Lanterna gives no extension point for
+// changing a border's title after construction, same class of gap as
+// WorkspaceDropdown's popup-listbox reflection.
+fun Border.setTitle(newTitle: String) {
+    try {
+        val field = javaClass.superclass.getDeclaredField("title")
+        field.isAccessible = true
+        field.set(this, newTitle)
+    } catch (_: Exception) {}
 }
 
 class DetailPanel(
@@ -78,7 +98,6 @@ class DetailPanel(
             is DetailContent.None -> addComponent(Label(""))
             is DetailContent.Loading -> addComponent(Label("Loading..."))
             is DetailContent.CollectionVariables -> {
-                addComponent(Label("Variables"))
                 content.variables.forEach { addComponent(Label("${it.key} = ${it.value}")) }
             }
             is DetailContent.Environments -> Unit // unreachable, handled above

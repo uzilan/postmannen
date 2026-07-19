@@ -42,11 +42,11 @@ class App(
         onKeyDeleted = { key -> viewModel.deleteEnvironmentKey(key) },
         onChatFocusRequested = { chatPanel.focusInput(); chatFocused = true; gridFocused = false }
     )
-    private val detailPanelBordered = detailPanel.withBorder(Borders.singleLine())
+    private val detailPanelBordered = detailPanel.withBorder(Borders.singleLine("Details"))
     private val chatPanel = ChatPanel(onSubmit = { text -> chatViewModel.sendMessage(text, buildChatContext()) }).apply {
         preferredSize = TerminalSize(30, preferredSize.rows)
     }
-    private val chatPanelBordered = chatPanel.withBorder(Borders.singleLine())
+    private val chatPanelBordered = chatPanel.withBorder(Borders.singleLine("Chat"))
     private val centerLayout = ThreeColumnLayout()
     private val centerPanel = Panel(centerLayout)
     private val statusBar = StatusBar()
@@ -57,6 +57,7 @@ class App(
     private var collectionsBeforeSwitch: List<Collection> = emptyList()
     private var gridFocused = false
     private var chatFocused = false
+    private var hasSetInitialFocus = false
 
     fun run() {
         window.setHints(setOf(Window.Hint.FULL_SCREEN, Window.Hint.NO_DECORATIONS))
@@ -116,6 +117,16 @@ class App(
 
         tabbedListPanel.onSelectionMaybeChanged = { refreshDetailPanel() }
 
+        tabbedListPanel.onArrowLeftKey = {
+            if (viewModel.state.value.activeTab == Tab.COLLECTIONS) {
+                workspaceDropdown.takeFocus()
+            } else {
+                switchTab()
+            }
+        }
+        tabbedListPanel.onArrowRightKey = { switchTab() }
+        tabbedListPanel.onArrowUpAtTop = { workspaceDropdown.takeFocus() }
+
         window.addWindowListener(object : WindowListenerAdapter() {
             override fun onUnhandledInput(basePane: Window, keyStroke: KeyStroke, hasBeenHandled: AtomicBoolean) {
                 when {
@@ -140,10 +151,7 @@ class App(
                         hasBeenHandled.set(true)
                     }
                     keyStroke.keyType == KeyType.ArrowLeft || keyStroke.keyType == KeyType.ArrowRight -> {
-                        val next = if (viewModel.state.value.activeTab == Tab.COLLECTIONS) Tab.ENVIRONMENTS else Tab.COLLECTIONS
-                        viewModel.setActiveTab(next)
-                        gridFocused = false
-                        chatFocused = false
+                        switchTab()
                         hasBeenHandled.set(true)
                     }
                     keyStroke.keyType == KeyType.Character && keyStroke.character == 'n' && keyStroke.isCtrlDown -> {
@@ -204,6 +212,13 @@ class App(
         gui.addWindow(win)
     }
 
+    private fun switchTab() {
+        val next = if (viewModel.state.value.activeTab == Tab.COLLECTIONS) Tab.ENVIRONMENTS else Tab.COLLECTIONS
+        viewModel.setActiveTab(next)
+        gridFocused = false
+        chatFocused = false
+    }
+
     private fun refreshDetailPanel() {
         val state = viewModel.state.value
         val content: DetailContent
@@ -221,6 +236,7 @@ class App(
             viewModel.refreshEnvironmentPanel(highlightedId)
             content = if (state.environmentPanelDetails.isEmpty()) DetailContent.None else DetailContent.Environments(state.environmentPanelDetails)
         }
+        detailPanelBordered.setTitle(content.titleFor())
         val rebuiltGrid = detailPanel.applyContent(content)
         if (gridFocused && !detailPanel.gridIsFocusable) {
             tabbedListPanel.focusList()
@@ -259,6 +275,16 @@ class App(
 
         tabbedListPanel.applyState(state)
         refreshDetailPanel()
+
+        // Lanterna focuses the first focusable widget added to the window by default
+        // (workspaceDropdown, added before the list) — nothing ever moves focus into
+        // the list on startup otherwise, so arrow keys land on the dropdown and do
+        // nothing until the user manually switches workspace (which has its own
+        // pending-focus handling below).
+        if (!hasSetInitialFocus && (state.collections.isNotEmpty() || state.environments.isNotEmpty())) {
+            hasSetInitialFocus = true
+            tabbedListPanel.focusList()
+        }
 
         // Deferred from the workspace-switch dropdown listener: collections for the
         // new workspace load asynchronously, so we can't decide "is there anything to
