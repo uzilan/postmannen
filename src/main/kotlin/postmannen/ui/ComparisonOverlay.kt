@@ -23,9 +23,12 @@ class ComparisonOverlay(
         setHints(setOf(Window.Hint.CENTERED))
         val panel = Panel(LinearLayout(Direction.VERTICAL))
 
-        val keys = details.flatMap { it.values.keys }.toSortedSet()
-        val columnWidths = details.map { env ->
-            val widest = (listOf(env.name.length, MISSING_MARKER.length) + env.values.values.map { it.length }).max()
+        val keys = details.flatMap { env -> env.values.map { it.key } }.toSortedSet()
+        val valuesByKeyAndEnv = details.map { env ->
+            env.values.associate { it.key to it.value }
+        }
+        val columnWidths = details.mapIndexed { i, env ->
+            val widest = (listOf(env.name.length, MISSING_MARKER.length) + valuesByKeyAndEnv[i].values.map { it.length }).max()
             widest + 2
         }
 
@@ -42,7 +45,7 @@ class ComparisonOverlay(
             val line = buildString {
                 append(key.padEnd(keyColumnWidth))
                 details.forEachIndexed { i, env ->
-                    val cell = env.values[key] ?: MISSING_MARKER
+                    val cell = valuesByKeyAndEnv[i][key] ?: MISSING_MARKER
                     append(cell.padEnd(columnWidths[i]))
                 }
             }

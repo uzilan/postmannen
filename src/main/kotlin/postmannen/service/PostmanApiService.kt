@@ -10,4 +10,5 @@ interface PostmanApiService {
     suspend fun getCollections(workspaceId: String): Result<List<Collection>>
     suspend fun getEnvironments(workspaceId: String): Result<List<Environment>>
     suspend fun getEnvironmentDetail(environmentUid: String): Result<EnvironmentDetail>
+    suspend fun updateEnvironment(detail: EnvironmentDetail): Result<Unit>
 }

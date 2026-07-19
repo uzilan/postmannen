@@ -3,6 +3,7 @@ package postmannen.service
 import postmannen.model.Collection
 import postmannen.model.Environment
 import postmannen.model.EnvironmentDetail
+import postmannen.model.EnvironmentValue
 import postmannen.model.Workspace
 
 class FakePostmanApiService : PostmanApiService {
@@ -13,6 +14,8 @@ class FakePostmanApiService : PostmanApiService {
         "env-1-uid" to Result.success(FIXTURE_ENVIRONMENT_DETAIL_STAGING),
         "env-2-uid" to Result.success(FIXTURE_ENVIRONMENT_DETAIL_PRODUCTION)
     )
+    var updateEnvironmentResult: Result<Unit> = Result.success(Unit)
+    var lastUpdatedEnvironmentDetail: EnvironmentDetail? = null
     var lastRequestedWorkspaceId: String? = null
 
     override suspend fun getWorkspaces(): Result<List<Workspace>> = workspacesResult
@@ -31,6 +34,11 @@ class FakePostmanApiService : PostmanApiService {
         environmentDetailResults[environmentUid]
             ?: Result.failure(IllegalStateException("no fixture registered for uid $environmentUid"))
 
+    override suspend fun updateEnvironment(detail: EnvironmentDetail): Result<Unit> {
+        lastUpdatedEnvironmentDetail = detail
+        return updateEnvironmentResult
+    }
+
     companion object {
         val FIXTURE_WORKSPACES = listOf(
             Workspace(id = "ws-1", name = "Engineering", type = "team"),
@@ -46,13 +54,20 @@ class FakePostmanApiService : PostmanApiService {
         )
         val FIXTURE_ENVIRONMENT_DETAIL_STAGING = EnvironmentDetail(
             id = "env-1",
+            uid = "env-1-uid",
             name = "Staging",
-            values = mapOf("BASE_URL" to "https://staging.example.com", "API_KEY" to "stg_xxx")
+            values = listOf(
+                EnvironmentValue(key = "BASE_URL", value = "https://staging.example.com", enabled = true, type = "default"),
+                EnvironmentValue(key = "API_KEY", value = "stg_xxx", enabled = true, type = "default")
+            )
         )
         val FIXTURE_ENVIRONMENT_DETAIL_PRODUCTION = EnvironmentDetail(
             id = "env-2",
+            uid = "env-2-uid",
             name = "Production",
-            values = mapOf("BASE_URL" to "https://prod.example.com")
+            values = listOf(
+                EnvironmentValue(key = "BASE_URL", value = "https://prod.example.com", enabled = true, type = "default")
+            )
         )
     }
 }
