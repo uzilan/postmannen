@@ -71,3 +71,31 @@ export async function createEnvironment(workspaceId: string, name: string): Prom
   if (!response.ok) throw new Error(`createEnvironment failed: ${response.status}`)
   return response.json()
 }
+
+export type ChatMessage =
+  | { role: 'user'; text: string }
+  | { role: 'assistant'; text: string; toolsUsed: string[]; errored: boolean }
+
+export type ChatContext = { workspaceName?: string; workspaceId?: string; highlightedLabel?: string }
+
+type ChatApiResponse = { reply: string; toolsUsed: string[]; errored: boolean; sessionId: string | null }
+
+const WRITE_TOOL_PREFIXES = ['create_', 'update_', 'delete_', 'put_', 'patch_']
+
+export function isWriteTool(name: string): boolean {
+  return WRITE_TOOL_PREFIXES.some((prefix) => name.startsWith(prefix))
+}
+
+export async function sendChatMessage(
+  prompt: string,
+  resumeSessionId: string | null,
+  context: ChatContext
+): Promise<ChatApiResponse> {
+  const response = await fetch(`${BASE_URL}/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, resumeSessionId, context }),
+  })
+  if (!response.ok) throw new Error(`sendChatMessage failed: ${response.status}`)
+  return response.json()
+}
