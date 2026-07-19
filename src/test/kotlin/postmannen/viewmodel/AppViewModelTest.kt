@@ -142,13 +142,24 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `openComparison with fewer than 2 selected sets status message and does not open`() = runTest {
+    fun `openComparison with none selected sets status message and does not open`() = runTest {
         val vm = AppViewModel(FakePostmanApiService(), this)
+        vm.openComparison()
+        advanceUntilIdle()
+        assertEquals("Select at least 1 environment to view", vm.state.value.statusMessage)
+        assertFalse(vm.state.value.comparisonVisible)
+    }
+
+    @Test
+    fun `openComparison with 1 selected fetches its detail and opens`() = runTest {
+        val vm = AppViewModel(FakePostmanApiService(), this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.openComparison()
         advanceUntilIdle()
-        assertEquals("Select at least 2 environments to compare", vm.state.value.statusMessage)
-        assertFalse(vm.state.value.comparisonVisible)
+        assertTrue(vm.state.value.comparisonVisible)
+        assertEquals(listOf(FakePostmanApiService.FIXTURE_ENVIRONMENT_DETAIL_STAGING), vm.state.value.comparisonDetails)
     }
 
     @Test

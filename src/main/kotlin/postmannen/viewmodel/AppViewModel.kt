@@ -103,8 +103,8 @@ class AppViewModel(
 
     fun openComparison() {
         val selectedIds = _state.value.selectedEnvironmentIds
-        if (selectedIds.size < 2) {
-            update { copy(statusMessage = "Select at least 2 environments to compare") }
+        if (selectedIds.isEmpty()) {
+            update { copy(statusMessage = "Select at least 1 environment to view") }
             return
         }
         val targets = _state.value.environments.filter { it.id in selectedIds }

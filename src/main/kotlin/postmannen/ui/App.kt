@@ -80,7 +80,13 @@ class App(
                         viewModel.setActiveTab(next)
                         hasBeenHandled.set(true)
                     }
-                    keyStroke.keyType == KeyType.Character && keyStroke.character == 'c' && viewModel.state.value.activeTab == Tab.ENVIRONMENTS -> {
+                    keyStroke.keyType == KeyType.Character && keyStroke.character == 'v' && viewModel.state.value.activeTab == Tab.ENVIRONMENTS &&
+                        viewModel.state.value.selectedEnvironmentIds.size == 1 -> {
+                        viewModel.openComparison()
+                        hasBeenHandled.set(true)
+                    }
+                    keyStroke.keyType == KeyType.Character && keyStroke.character == 'c' && viewModel.state.value.activeTab == Tab.ENVIRONMENTS &&
+                        viewModel.state.value.selectedEnvironmentIds.size >= 2 -> {
                         viewModel.openComparison()
                         hasBeenHandled.set(true)
                     }
@@ -140,7 +146,7 @@ class App(
 
         hintLabel.text = when {
             state.comparisonVisible -> "  [esc] close  ^N add key  ^D delete key"
-            state.activeTab == Tab.ENVIRONMENTS -> "  [space] select  [c] compare (${state.selectedEnvironmentIds.size})  ^N new  [←][→] tabs  q-quit"
+            state.activeTab == Tab.ENVIRONMENTS -> "  [space] select  [v] view (1)  [c] compare (2+)  ^N new  [←][→] tabs  q-quit"
             else -> "  [←][→] tabs  q-quit"
         }
 
