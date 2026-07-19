@@ -2,6 +2,7 @@ package postmannen.ui
 
 import com.googlecode.lanterna.gui2.BasicWindow
 import com.googlecode.lanterna.gui2.Direction
+import com.googlecode.lanterna.gui2.Interactable
 import com.googlecode.lanterna.gui2.Label
 import com.googlecode.lanterna.gui2.LinearLayout
 import com.googlecode.lanterna.gui2.Panel
@@ -17,7 +18,20 @@ class NamePromptOverlay(
     private val onCancel: () -> Unit
 ) : BasicWindow("New Environment") {
 
-    private val nameBox = TextBox()
+    // Lanterna's default TextBox.handleKeyStroke claims Enter (moves focus)
+    // and never lets it reach the window's onUnhandledInput while the box
+    // has focus (which it does by default here) — same issue documented in
+    // ComparisonOverlay for Ctrl+N/Ctrl+D. Intercept Enter/Escape here first.
+    private val nameBox = object : TextBox() {
+        override fun handleKeyStroke(keyStroke: KeyStroke): Interactable.Result {
+            when (keyStroke.keyType) {
+                KeyType.Enter -> { onSubmit(text); return Interactable.Result.HANDLED }
+                KeyType.Escape -> { onCancel(); return Interactable.Result.HANDLED }
+                else -> {}
+            }
+            return super.handleKeyStroke(keyStroke)
+        }
+    }
 
     init {
         setHints(setOf(Window.Hint.CENTERED))
