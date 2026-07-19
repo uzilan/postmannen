@@ -35,6 +35,7 @@ class TabbedListPanel : Panel(LinearLayout(Direction.VERTICAL)) {
 
     init {
         addComponent(tabBar)
+        addComponent(Label(""))
         addComponent(itemListBox)
     }
 
