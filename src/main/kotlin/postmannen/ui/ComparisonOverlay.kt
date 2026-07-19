@@ -21,16 +21,19 @@ import java.util.concurrent.atomic.AtomicBoolean
 // enough that (key column + N * (3 + this)) rarely exceeds the terminal
 // width, or the checkbox column gets eaten into and its "]" disappears.
 private const val VALUE_COLUMN_WIDTH = 18
+private const val KEY_COLUMN_WIDTH = 18
 
 class ComparisonOverlay(
     initialDetails: List<EnvironmentDetail>,
     private val onValueChanged: (environmentUid: String, key: String, newValue: String) -> Unit,
     private val onEnabledToggled: (environmentUid: String, key: String) -> Unit,
+    private val onKeyRenamed: (oldKey: String, newKey: String) -> Unit,
     private val onDismiss: () -> Unit
 ) : BasicWindow("Compare Environments") {
 
     private val checkBoxes = mutableMapOf<Pair<String, String>, CheckBox>()
     private val textBoxes = mutableMapOf<Pair<String, String>, TextBox>()
+    private val keyTextBoxes = mutableMapOf<String, TextBox>()
 
     init {
         setHints(setOf(Window.Hint.CENTERED))
@@ -49,7 +52,24 @@ class ComparisonOverlay(
         }
 
         keys.forEach { key ->
-            panel.addComponent(Label(key))
+            val keyTextBox = object : TextBox(key) {
+                private var textOnFocus = text
+                override fun afterEnterFocus(direction: Interactable.FocusChangeDirection, previouslyInFocus: Interactable?) {
+                    textOnFocus = text
+                    super.afterEnterFocus(direction, previouslyInFocus)
+                }
+                override fun afterLeaveFocus(direction: Interactable.FocusChangeDirection, nextInFocus: Interactable?) {
+                    if (text != textOnFocus) {
+                        onKeyRenamed(key, text)
+                    }
+                    super.afterLeaveFocus(direction, nextInFocus)
+                }
+            }
+            (keyTextBox.renderer as? TextBox.DefaultTextBoxRenderer)?.setUnusedSpaceCharacter(' ')
+            keyTextBox.preferredSize = TerminalSize(KEY_COLUMN_WIDTH, 1)
+            keyTextBox.setCaretPosition(0, 0)
+            keyTextBoxes[key] = keyTextBox
+            panel.addComponent(keyTextBox)
             initialDetails.forEach { detail ->
                 val existing = detail.values.firstOrNull { it.key == key }
                 val cellKey = detail.uid to key
@@ -106,6 +126,18 @@ class ComparisonOverlay(
                 val cellKey = detail.uid to value.key
                 textBoxes[cellKey]?.let { box -> if (!box.isFocused && box.text != value.value) box.text = value.value }
                 checkBoxes[cellKey]?.let { box -> if (!box.isFocused && box.isChecked != value.enabled) box.isChecked = value.enabled }
+            }
+        }
+        // A key TextBox is tracked by its original construction-time key. This app
+        // never truly deletes a key (only adds or renames one), so if that original
+        // key still appears anywhere in the current details, any rename attempt for
+        // it either never happened or failed and was rolled back — reset the display
+        // back to the original. If it no longer appears anywhere, the rename
+        // succeeded and the box already shows what the user typed — leave it alone.
+        keyTextBoxes.forEach { (originalKey, box) ->
+            val stillExists = details.any { detail -> detail.values.any { it.key == originalKey } }
+            if (stillExists && !box.isFocused && box.text != originalKey) {
+                box.text = originalKey
             }
         }
     }

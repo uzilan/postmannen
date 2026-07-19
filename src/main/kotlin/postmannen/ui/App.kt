@@ -125,6 +125,7 @@ class App(
                 initialDetails = state.comparisonDetails,
                 onValueChanged = { uid, key, newValue -> viewModel.updateEnvironmentValue(uid, key, newValue) },
                 onEnabledToggled = { uid, key -> viewModel.toggleEnvironmentValueEnabled(uid, key) },
+                onKeyRenamed = { oldKey, newKey -> viewModel.renameEnvironmentKey(oldKey, newKey) },
                 onDismiss = { viewModel.closeComparison() }
             )
             comparisonWindow = win
