@@ -19,6 +19,7 @@ import kotlinx.serialization.json.Json
 import postmannen.model.Collection
 import postmannen.model.CollectionDetail
 import postmannen.model.CollectionNode
+import postmannen.model.CollectionVariable
 import postmannen.model.Environment
 import postmannen.model.EnvironmentDetail
 import postmannen.model.EnvironmentValue
@@ -54,7 +55,10 @@ class PostmanApiServiceImpl(private val apiKey: String) : PostmanApiService {
         CollectionDetail(
             uid = collectionUid,
             name = response.collection.info.name,
-            items = response.collection.item.map { it.toNode() }
+            items = response.collection.item.map { it.toNode() },
+            variables = response.collection.variable.map {
+                CollectionVariable(key = it.key, value = it.value, enabled = it.enabled)
+            }
         )
     }
 
@@ -165,10 +169,17 @@ private data class EnvironmentCreateResponseDto(val id: String, val name: String
 private data class CollectionDetailResponse(val collection: CollectionDetailDto)
 
 @Serializable
-private data class CollectionDetailDto(val info: CollectionInfoDto, val item: List<CollectionItemDto> = emptyList())
+private data class CollectionDetailDto(
+    val info: CollectionInfoDto,
+    val item: List<CollectionItemDto> = emptyList(),
+    val variable: List<CollectionVariableDto> = emptyList()
+)
 
 @Serializable
 private data class CollectionInfoDto(val name: String)
+
+@Serializable
+private data class CollectionVariableDto(val key: String, val value: String = "", val enabled: Boolean = true)
 
 @Serializable
 private data class CollectionItemDto(val name: String, val item: List<CollectionItemDto>? = null)

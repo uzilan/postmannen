@@ -3,6 +3,7 @@ package postmannen.service
 import postmannen.model.Collection
 import postmannen.model.CollectionDetail
 import postmannen.model.CollectionNode
+import postmannen.model.CollectionVariable
 import postmannen.model.Environment
 import postmannen.model.EnvironmentDetail
 import postmannen.model.EnvironmentValue
@@ -77,12 +78,17 @@ class FakePostmanApiService : PostmanApiService {
                     listOf(CollectionNode.RequestItem("Login"), CollectionNode.RequestItem("Signup"))
                 ),
                 CollectionNode.RequestItem("Health Check")
+            ),
+            variables = listOf(
+                CollectionVariable(key = "base_url", value = "https://auth.example.com", enabled = true),
+                CollectionVariable(key = "timeout_ms", value = "3000", enabled = true)
             )
         )
         val FIXTURE_COLLECTION_DETAIL_BILLING = CollectionDetail(
             uid = "col-2-uid",
             name = "Billing API",
-            items = listOf(CollectionNode.RequestItem("List Invoices"))
+            items = listOf(CollectionNode.RequestItem("List Invoices")),
+            variables = emptyList()
         )
         val FIXTURE_ENVIRONMENTS = listOf(
             Environment(id = "env-1", name = "Staging", uid = "env-1-uid"),
