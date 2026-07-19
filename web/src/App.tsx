@@ -228,9 +228,6 @@ export default function App() {
         <TabBar active={activeTab} onChange={setActiveTab} />
       </Box>
       {statusMessage && <Typography color="error">{statusMessage}</Typography>}
-      {activeTab === 'chat' ? (
-        <ChatPanel messages={chatMessages} sending={chatSending} onSend={handleSendChat} />
-      ) : (
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Box sx={{ width: '30%', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <Box
@@ -283,8 +280,10 @@ export default function App() {
             onDeleteKey={handleDeleteKey}
           />
         </Box>
+        <Box sx={{ width: '30%', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <ChatPanel messages={chatMessages} sending={chatSending} onSend={handleSendChat} />
+        </Box>
       </Box>
-      )}
       <CreateEnvironmentDialog
         open={createDialogOpen}
         onCreate={handleCreateEnvironment}
