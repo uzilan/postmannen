@@ -15,6 +15,7 @@ class FakePostmanApiService : PostmanApiService {
         "env-2-uid" to Result.success(FIXTURE_ENVIRONMENT_DETAIL_PRODUCTION)
     )
     var updateEnvironmentResult: Result<Unit> = Result.success(Unit)
+    var updateEnvironmentHandler: ((EnvironmentDetail) -> Result<Unit>)? = null
     var lastUpdatedEnvironmentDetail: EnvironmentDetail? = null
     var lastRequestedWorkspaceId: String? = null
 
@@ -36,7 +37,7 @@ class FakePostmanApiService : PostmanApiService {
 
     override suspend fun updateEnvironment(detail: EnvironmentDetail): Result<Unit> {
         lastUpdatedEnvironmentDetail = detail
-        return updateEnvironmentResult
+        return updateEnvironmentHandler?.invoke(detail) ?: updateEnvironmentResult
     }
 
     companion object {
