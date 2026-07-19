@@ -21,7 +21,8 @@ class NamePromptOverlay(
     // Lanterna's default TextBox.handleKeyStroke claims Enter (moves focus)
     // and never lets it reach the window's onUnhandledInput while the box
     // has focus (which it does by default here) — same issue documented in
-    // ComparisonOverlay for Ctrl+N/Ctrl+D. Intercept Enter/Escape here first.
+    // EnvironmentGridPanel.handleAddDeleteShortcut for Ctrl+N/Ctrl+D. Intercept
+    // Enter/Escape here first.
     private val nameBox = object : TextBox() {
         override fun handleKeyStroke(keyStroke: KeyStroke): Interactable.Result {
             when (keyStroke.keyType) {

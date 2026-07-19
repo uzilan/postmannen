@@ -166,8 +166,12 @@ class AppViewModel(
     // needs 2+) split exactly, just triggered reactively instead of by keypress.
     // The equality guard avoids redundant state updates (and the recomposition that
     // comes with them) when the target set hasn't changed — important since callers
-    // invoke this on every cursor movement. The getEnvironmentDetail calls themselves
-    // are cheap regardless, since CachingPostmanApiService serves repeats from cache.
+    // invoke this on every cursor movement. The getEnvironmentDetail calls are cheap
+    // for environments whose fetch previously succeeded, since CachingPostmanApiService
+    // serves those from cache — but a repeatedly-failing environment will keep hitting
+    // the network on every unrelated state emission, since a failed fetch is never
+    // cached and the guard above can't match against a target that never successfully
+    // populated environmentPanelDetails.
     fun refreshEnvironmentPanel(highlightedEnvironmentId: String?) {
         val state = _state.value
         val targetIds = if (state.selectedEnvironmentIds.size >= 2) state.selectedEnvironmentIds

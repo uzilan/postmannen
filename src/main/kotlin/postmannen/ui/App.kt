@@ -188,13 +188,11 @@ class App(
             content = if (state.environmentPanelDetails.isEmpty()) DetailContent.None else DetailContent.Environments(state.environmentPanelDetails)
         }
         val rebuiltGrid = detailPanel.applyContent(content)
-        if (rebuiltGrid && gridFocused) {
-            if (detailPanel.gridIsFocusable) {
-                detailPanel.focusGrid()
-            } else {
-                tabbedListPanel.focusList()
-                gridFocused = false
-            }
+        if (gridFocused && !detailPanel.gridIsFocusable) {
+            tabbedListPanel.focusList()
+            gridFocused = false
+        } else if (rebuiltGrid && gridFocused) {
+            detailPanel.focusGrid()
         }
 
         val shouldShowDetailPanel = if (state.activeTab == Tab.COLLECTIONS) state.collections.isNotEmpty() else state.environments.isNotEmpty()
