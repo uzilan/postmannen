@@ -7,13 +7,18 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.put
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
 import io.ktor.http.appendPathSegments
+import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import postmannen.model.Collection
 import postmannen.model.Environment
 import postmannen.model.EnvironmentDetail
+import postmannen.model.EnvironmentValue
 import postmannen.model.Workspace
 
 class PostmanApiServiceImpl(private val apiKey: String) : PostmanApiService {
@@ -54,8 +59,27 @@ class PostmanApiServiceImpl(private val apiKey: String) : PostmanApiService {
         val response: EnvironmentDetailResponse =
             client.get { url { appendPathSegments("environments", environmentUid) } }.body()
         val env = response.environment
-        val values = env.values.filter { it.enabled }.associate { it.key to it.value }
-        EnvironmentDetail(id = env.id, name = env.name, values = values)
+        val values = env.values.map {
+            EnvironmentValue(key = it.key, value = it.value, enabled = it.enabled, type = it.type)
+        }
+        EnvironmentDetail(id = env.id, uid = environmentUid, name = env.name, values = values)
+    }
+
+    override suspend fun updateEnvironment(detail: EnvironmentDetail): Result<Unit> = runCatching {
+        client.put {
+            url { appendPathSegments("environments", detail.uid) }
+            contentType(ContentType.Application.Json)
+            setBody(
+                EnvironmentUpdateRequest(
+                    environment = EnvironmentUpdateDto(
+                        name = detail.name,
+                        values = detail.values.map {
+                            EnvironmentValueDto(key = it.key, value = it.value, enabled = it.enabled, type = it.type)
+                        }
+                    )
+                )
+            )
+        }
     }
 
     companion object {
@@ -92,3 +116,9 @@ private data class EnvironmentDetailDto(val id: String, val name: String, val va
 
 @Serializable
 private data class EnvironmentValueDto(val key: String, val value: String, val enabled: Boolean = true, val type: String = "default")
+
+@Serializable
+private data class EnvironmentUpdateRequest(val environment: EnvironmentUpdateDto)
+
+@Serializable
+private data class EnvironmentUpdateDto(val name: String, val values: List<EnvironmentValueDto>)
