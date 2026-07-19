@@ -62,24 +62,34 @@ class ComparisonOverlay(
 
         addWindowListener(object : WindowListenerAdapter() {
             override fun onUnhandledInput(basePane: Window, key: KeyStroke, hasBeenHandled: AtomicBoolean) {
-                when {
-                    key.keyType == KeyType.Escape -> {
-                        onDismiss()
-                        hasBeenHandled.set(true)
-                    }
-                    key.keyType == KeyType.Character && key.character == 'n' && key.isCtrlDown -> {
-                        addNewRow()
-                        hasBeenHandled.set(true)
-                    }
-                    key.keyType == KeyType.Character && key.character == 'd' && key.isCtrlDown -> {
-                        deleteFocusedRow()
-                        hasBeenHandled.set(true)
-                    }
+                if (key.keyType == KeyType.Escape) {
+                    onDismiss()
+                    hasBeenHandled.set(true)
+                    return
+                }
+                if (handleAddDeleteShortcut(key) != null) {
+                    hasBeenHandled.set(true)
                 }
             }
         })
 
         component = panel
+    }
+
+    // Lanterna's default TextBox.handleKeyStroke claims every KeyType.Character
+    // keystroke as literal text input regardless of the Ctrl modifier, so Ctrl+N/
+    // Ctrl+D never reach the window-level onUnhandledInput handler while any TextBox
+    // in this grid has focus (which is almost always). Both TextBox subclasses below
+    // call this first and only fall through to the default text-insert behavior if
+    // it returns null. The window-level handler above also calls it, covering the
+    // case where a CheckBox (which doesn't consume arbitrary character keys) has focus.
+    private fun handleAddDeleteShortcut(key: KeyStroke): Interactable.Result? {
+        if (key.keyType != KeyType.Character || !key.isCtrlDown) return null
+        return when (key.character) {
+            'n' -> { addNewRow(); Interactable.Result.HANDLED }
+            'd' -> { deleteFocusedRow(); Interactable.Result.HANDLED }
+            else -> null
+        }
     }
 
     private fun addNewRow() {
@@ -134,6 +144,10 @@ class ComparisonOverlay(
                 }
                 super.afterLeaveFocus(direction, nextInFocus)
             }
+            override fun handleKeyStroke(keyStroke: KeyStroke): Interactable.Result {
+                handleAddDeleteShortcut(keyStroke)?.let { return it }
+                return super.handleKeyStroke(keyStroke)
+            }
         }
         (keyBox.renderer as? TextBox.DefaultTextBoxRenderer)?.setUnusedSpaceCharacter(' ')
         keyBox.preferredSize = TerminalSize(KEY_COLUMN_WIDTH, 1)
@@ -162,6 +176,10 @@ class ComparisonOverlay(
                         onValueChanged(detail.uid, row.keyBox.text, text)
                     }
                     super.afterLeaveFocus(direction, nextInFocus)
+                }
+                override fun handleKeyStroke(keyStroke: KeyStroke): Interactable.Result {
+                    handleAddDeleteShortcut(keyStroke)?.let { return it }
+                    return super.handleKeyStroke(keyStroke)
                 }
             }
             (valueBox.renderer as? TextBox.DefaultTextBoxRenderer)?.setUnusedSpaceCharacter(' ')
