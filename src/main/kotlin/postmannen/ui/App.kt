@@ -69,6 +69,12 @@ class App(
             }
         }
 
+        tabbedListPanel.onEnterKey = {
+            if (viewModel.state.value.activeTab == Tab.COLLECTIONS) {
+                tabbedListPanel.selectedNodeId?.let { viewModel.toggleNodeCollapsed(it) }
+            }
+        }
+
         window.addWindowListener(object : WindowListenerAdapter() {
             override fun onUnhandledInput(basePane: Window, keyStroke: KeyStroke, hasBeenHandled: AtomicBoolean) {
                 when {
@@ -148,6 +154,7 @@ class App(
         hintLabel.text = when {
             state.comparisonVisible -> "  [esc] close  ^N add key  ^D delete key"
             state.activeTab == Tab.ENVIRONMENTS -> "  [space] select  [v] view  [c] compare (${state.selectedEnvironmentIds.size})  ^N new  [←][→] tabs  q-quit"
+            state.activeTab == Tab.COLLECTIONS -> "  [enter] expand/collapse  [←][→] tabs  q-quit"
             else -> "  [←][→] tabs  q-quit"
         }
 
