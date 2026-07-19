@@ -76,6 +76,12 @@ service (PostmanApiService) → viewmodel (AppViewModel) → ui (App)
   same highlight to the open dropdown's popup list — Lanterna gives no
   public extension point for that, so the reflection is intentional, not
   a hack to clean up.
+- **`TextBox`**: Lanterna's default `TextBox` renderer fills unused width
+  with `.` characters, which reads as a distracting placeholder/mask in
+  this app's UI. Every `TextBox` we create must call
+  `(box.renderer as? TextBox.DefaultTextBoxRenderer)?.setUnusedSpaceCharacter(' ')`
+  right after construction — see `ComparisonOverlay`'s `keyBox`/`valueBox`
+  and `NamePromptOverlay`'s `nameBox` for the pattern.
 - **Service layer**: `PostmanApiService` is the interface; `PostmanApiServiceImpl`
   is the real Ktor-backed implementation (one shared `HttpClient` with
   `X-Api-Key` auth baked into `defaultRequest`); `FakePostmanApiService`

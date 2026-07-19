@@ -37,6 +37,8 @@ class NamePromptOverlay(
             }
         })
 
+        (nameBox.renderer as? TextBox.DefaultTextBoxRenderer)?.setUnusedSpaceCharacter(' ')
+
         component = panel
         nameBox.takeFocus()
     }
