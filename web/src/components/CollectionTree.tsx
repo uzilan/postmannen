@@ -24,7 +24,7 @@ function TreeNode(props: {
 
   if (node.type === 'item') {
     return (
-      <ListItemButton sx={{ pl: depth * 2 + 4 }} disableRipple>
+      <ListItemButton sx={{ pl: (depth + 1) * 2 + 4 }} disableRipple>
         <ListItemIcon sx={{ minWidth: 32 }}>
           <DescriptionOutlinedIcon fontSize="small" />
         </ListItemIcon>
@@ -36,7 +36,7 @@ function TreeNode(props: {
   const isCollapsed = collapsedIds.has(id)
   return (
     <>
-      <ListItemButton onClick={() => onToggle(id)} sx={{ pl: depth * 2 }}>
+      <ListItemButton onClick={() => onToggle(id)} sx={{ pl: (depth + 1) * 2 }}>
         <ListItemIcon sx={{ minWidth: 32 }}>
           {isCollapsed ? <ChevronRightIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
         </ListItemIcon>
