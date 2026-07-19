@@ -127,6 +127,13 @@ class AppViewModel(
             }
         }
 
+    fun refreshWorkspace() {
+        val workspace = _state.value.workspaces.getOrNull(_state.value.selectedWorkspaceIndex) ?: return
+        service.invalidateWorkspace(workspace.id)
+        loadCollections(workspace.id)
+        loadEnvironments(workspace.id)
+    }
+
     fun toggleNodeCollapsed(nodeId: String) {
         update {
             val newSet = if (nodeId in collapsedNodeIds) collapsedNodeIds - nodeId else collapsedNodeIds + nodeId

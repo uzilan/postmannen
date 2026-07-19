@@ -67,6 +67,47 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `refreshWorkspace invalidates the current workspace and reloads its collections and environments`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+
+        vm.refreshWorkspace()
+        advanceUntilIdle()
+
+        assertEquals(listOf("ws-1"), fake.invalidateWorkspaceCalls)
+        assertEquals(FakePostmanApiService.FIXTURE_COLLECTIONS, vm.state.value.collections)
+        assertEquals(FakePostmanApiService.FIXTURE_ENVIRONMENTS, vm.state.value.environments)
+    }
+
+    @Test
+    fun `refreshWorkspace with no workspace selected is a no-op`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+
+        vm.refreshWorkspace()
+        advanceUntilIdle()
+
+        assertEquals(emptyList(), fake.invalidateWorkspaceCalls)
+    }
+
+    @Test
+    fun `refreshWorkspace targets the currently selected workspace, not always the first`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        vm.selectWorkspace(1)
+        advanceUntilIdle()
+
+        vm.refreshWorkspace()
+        advanceUntilIdle()
+
+        assertEquals(listOf("ws-2"), fake.invalidateWorkspaceCalls)
+    }
+
+    @Test
     fun `loadCollections on failure sets status message and preserves existing list`() = runTest {
         val fake = FakePostmanApiService()
         val vm = AppViewModel(fake, this)

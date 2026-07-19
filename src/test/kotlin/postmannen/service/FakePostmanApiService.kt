@@ -28,6 +28,7 @@ class FakePostmanApiService : PostmanApiService {
     var createEnvironmentResult: Result<Environment> = Result.success(Environment(id = "env-new", name = "New Env", uid = "env-new-uid"))
     var lastCreatedEnvironmentName: String? = null
     var lastCreatedEnvironmentWorkspaceId: String? = null
+    val invalidateWorkspaceCalls: MutableList<String> = mutableListOf()
 
     override suspend fun getWorkspaces(): Result<List<Workspace>> = workspacesResult
 
@@ -58,6 +59,10 @@ class FakePostmanApiService : PostmanApiService {
         lastCreatedEnvironmentWorkspaceId = workspaceId
         lastCreatedEnvironmentName = name
         return createEnvironmentResult
+    }
+
+    override fun invalidateWorkspace(workspaceId: String) {
+        invalidateWorkspaceCalls.add(workspaceId)
     }
 
     companion object {
