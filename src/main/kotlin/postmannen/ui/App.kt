@@ -173,12 +173,19 @@ class App(
         statusBar.setText(if (state.loading) "Loading..." else state.statusMessage)
 
         if (state.comparisonVisible && comparisonWindow == null) {
-            val win = ComparisonOverlay(state.comparisonDetails) { viewModel.closeComparison() }
+            val win = ComparisonOverlay(
+                initialDetails = state.comparisonDetails,
+                onValueChanged = { uid, key, newValue -> viewModel.updateEnvironmentValue(uid, key, newValue) },
+                onEnabledToggled = { uid, key -> viewModel.toggleEnvironmentValueEnabled(uid, key) },
+                onDismiss = { viewModel.closeComparison() }
+            )
             comparisonWindow = win
             gui.addWindow(win)
         } else if (!state.comparisonVisible && comparisonWindow != null) {
             comparisonWindow?.close()
             comparisonWindow = null
+        } else if (state.comparisonVisible && comparisonWindow != null) {
+            comparisonWindow?.applyDetails(state.comparisonDetails)
         }
     }
 
