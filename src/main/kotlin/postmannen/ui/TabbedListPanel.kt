@@ -48,6 +48,10 @@ class TabbedListPanel : Panel(LinearLayout(Direction.VERTICAL)) {
 
     val selectedIndex: Int get() = itemListBox.selectedIndex
 
+    fun focusList() {
+        itemListBox.takeFocus()
+    }
+
     private data class Row(val nodeId: String, val label: String)
 
     private var collectionRows: List<Row> = emptyList()
@@ -66,6 +70,7 @@ class TabbedListPanel : Panel(LinearLayout(Direction.VERTICAL)) {
     private var lastEnvironments: List<Environment> = emptyList()
     private var lastActiveTab: Tab? = null
     private var lastSelectedEnvironmentIds: Set<String> = emptySet()
+    private var lastSelectedWorkspaceIndex: Int = -1
 
     fun applyState(state: AppState) {
         tabBar.text = buildTabBar(state.activeTab)
@@ -75,8 +80,9 @@ class TabbedListPanel : Panel(LinearLayout(Direction.VERTICAL)) {
             state.collapsedNodeIds != lastCollapsedNodeIds ||
             state.environments != lastEnvironments
         val tabChanged = state.activeTab != lastActiveTab
+        val workspaceChanged = state.selectedWorkspaceIndex != lastSelectedWorkspaceIndex
         val selectionChanged = state.selectedEnvironmentIds != lastSelectedEnvironmentIds
-        if (itemsChanged || tabChanged || selectionChanged) {
+        if (itemsChanged || tabChanged || workspaceChanged || selectionChanged) {
             val previousIndex = itemListBox.selectedIndex
             lastCollections = state.collections
             lastCollectionDetails = state.collectionDetails
@@ -84,6 +90,7 @@ class TabbedListPanel : Panel(LinearLayout(Direction.VERTICAL)) {
             lastEnvironments = state.environments
             lastActiveTab = state.activeTab
             lastSelectedEnvironmentIds = state.selectedEnvironmentIds
+            lastSelectedWorkspaceIndex = state.selectedWorkspaceIndex
             itemListBox.clearItems()
             val labels = if (state.activeTab == Tab.COLLECTIONS) {
                 collectionRows = flatten(state.collections, state.collectionDetails, state.collapsedNodeIds)
@@ -96,7 +103,7 @@ class TabbedListPanel : Panel(LinearLayout(Direction.VERTICAL)) {
                 }
             }
             labels.forEach { label -> itemListBox.addItem(label) {} }
-            if (!tabChanged && labels.isNotEmpty()) {
+            if (!tabChanged && !workspaceChanged && labels.isNotEmpty()) {
                 itemListBox.selectedIndex = previousIndex.coerceIn(0, labels.size - 1)
             }
         }

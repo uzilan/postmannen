@@ -62,6 +62,7 @@ class App(
         workspaceDropdown.addListener { selectedIndex, _, changedByUserInteraction ->
             if (changedByUserInteraction && !applyingState) {
                 viewModel.selectWorkspace(selectedIndex)
+                tabbedListPanel.focusList()
             }
         }
 
