@@ -25,8 +25,14 @@ dependencies {
     implementation("io.ktor:ktor-client-content-negotiation:3.1.0")
     implementation("io.ktor:ktor-serialization-kotlinx-json:3.1.0")
 
+    implementation("io.ktor:ktor-server-core:3.1.0")
+    implementation("io.ktor:ktor-server-cio:3.1.0")
+    implementation("io.ktor:ktor-server-content-negotiation:3.1.0")
+
     testImplementation("org.jetbrains.kotlin:kotlin-test:2.4.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+    testImplementation("io.ktor:ktor-server-test-host:3.1.0")
+    testImplementation("io.ktor:ktor-client-content-negotiation:3.1.0")
 }
 
 application {
@@ -40,6 +46,12 @@ tasks.shadowJar {
     manifest {
         attributes["Main-Class"] = "postmannen.MainKt"
     }
+}
+
+tasks.register<JavaExec>("runServer") {
+    group = "application"
+    mainClass.set("postmannen.server.ServerMainKt")
+    classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.test {
