@@ -65,6 +65,7 @@ class ComparisonOverlay(
                         super.afterLeaveFocus(direction, nextInFocus)
                     }
                 }
+                (textBox.renderer as? TextBox.DefaultTextBoxRenderer)?.setUnusedSpaceCharacter(' ')
                 textBoxes[cellKey] = textBox
                 panel.addComponent(textBox)
             }
