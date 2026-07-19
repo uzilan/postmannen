@@ -37,6 +37,7 @@ class ChatPanel(
     }
 
     private var lastMessages: List<ChatMessage> = emptyList()
+    private var lastWidth: Int = -1
 
     init {
         addComponent(Label("Chat"))
@@ -51,9 +52,11 @@ class ChatPanel(
     }
 
     fun applyState(state: ChatState) {
-        if (state.messages != lastMessages) {
+        val width = transcriptBox.size.columns
+        if (state.messages != lastMessages || width != lastWidth) {
             lastMessages = state.messages
-            transcriptBox.text = render(state.messages)
+            lastWidth = width
+            transcriptBox.text = wrapText(render(state.messages), width)
             val lines = transcriptBox.lineCount
             if (lines > 0) transcriptBox.setCaretPosition(lines - 1, 0)
         }
