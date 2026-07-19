@@ -33,12 +33,16 @@ class App(
     private val hintLabel = Label("")
     private val window = BasicWindow("postmannen")
     private var comparisonWindow: ComparisonOverlay? = null
+    private var namePromptWindow: NamePromptOverlay? = null
 
     fun run() {
         window.setHints(setOf(Window.Hint.FULL_SCREEN, Window.Hint.NO_DECORATIONS))
 
         val root = Panel(BorderLayout())
-        root.addComponent(workspaceDropdown, BorderLayout.Location.TOP)
+        val topPanel = Panel(LinearLayout(Direction.HORIZONTAL))
+        topPanel.addComponent(Label("Workspace:"))
+        topPanel.addComponent(workspaceDropdown)
+        root.addComponent(topPanel, BorderLayout.Location.TOP)
         root.addComponent(tabbedListPanel.withBorder(Borders.singleLine()), BorderLayout.Location.CENTER)
 
         val bottomPanel = Panel(LinearLayout(Direction.VERTICAL))
@@ -80,6 +84,12 @@ class App(
                         viewModel.openComparison()
                         hasBeenHandled.set(true)
                     }
+                    keyStroke.keyType == KeyType.Character && keyStroke.character == 'n' && keyStroke.isCtrlDown &&
+                        viewModel.state.value.activeTab == Tab.ENVIRONMENTS && namePromptWindow == null &&
+                        !viewModel.state.value.comparisonVisible -> {
+                        openNamePrompt()
+                        hasBeenHandled.set(true)
+                    }
                 }
             }
         })
@@ -100,6 +110,22 @@ class App(
 
     private var lastWorkspaces: List<Workspace> = emptyList()
 
+    private fun openNamePrompt() {
+        val win = NamePromptOverlay(
+            onSubmit = { name ->
+                namePromptWindow?.close()
+                namePromptWindow = null
+                viewModel.createEnvironment(name)
+            },
+            onCancel = {
+                namePromptWindow?.close()
+                namePromptWindow = null
+            }
+        )
+        namePromptWindow = win
+        gui.addWindow(win)
+    }
+
     private fun applyState(state: AppState) {
         if (state.workspaces != lastWorkspaces) {
             lastWorkspaces = state.workspaces
@@ -114,7 +140,7 @@ class App(
 
         hintLabel.text = when {
             state.comparisonVisible -> "  [esc] close  ^N add key  ^D delete key"
-            state.activeTab == Tab.ENVIRONMENTS -> "  [space] select  [c] compare (${state.selectedEnvironmentIds.size})  [←][→] tabs  q-quit"
+            state.activeTab == Tab.ENVIRONMENTS -> "  [space] select  [c] compare (${state.selectedEnvironmentIds.size})  ^N new  [←][→] tabs  q-quit"
             else -> "  [←][→] tabs  q-quit"
         }
 
