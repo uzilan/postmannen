@@ -186,15 +186,11 @@ export default function App() {
             collections.map((c) => {
               const detail = collectionDetails.get(c.uid)
               return detail ? (
-                <Box key={c.uid}>
-                  <Typography variant="subtitle2" sx={{ px: 2, pt: 1 }}>
-                    {c.name}
-                  </Typography>
-                  <CollectionTree
-                    detail={detail}
-                    onSelectVariables={(variables) => setDetailContent({ kind: 'collectionVariables', variables })}
-                  />
-                </Box>
+                <CollectionTree
+                  key={c.uid}
+                  detail={detail}
+                  onSelectVariables={(variables) => setDetailContent({ kind: 'collectionVariables', variables })}
+                />
               ) : null
             })}
           {activeTab === 'environments' && (

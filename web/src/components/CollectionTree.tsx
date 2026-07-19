@@ -63,7 +63,7 @@ export function CollectionTree(props: {
 }) {
   const { detail, onSelectVariables } = props
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(
-    () => new Set(collectNodeIds(detail.uid, detail.items))
+    () => new Set([detail.uid, ...collectNodeIds(detail.uid, detail.items)])
   )
 
   const onToggle = (id: string) => {
@@ -75,18 +75,32 @@ export function CollectionTree(props: {
     })
   }
 
+  const isCollapsed = collapsedIds.has(detail.uid)
+
   return (
-    <List onClick={() => onSelectVariables(detail.variables)}>
-      {detail.items.map((node, i) => (
-        <TreeNode
-          key={`${detail.uid}/${i}`}
-          node={node}
-          id={`${detail.uid}/${i}`}
-          depth={0}
-          collapsedIds={collapsedIds}
-          onToggle={onToggle}
-        />
-      ))}
+    <List>
+      <ListItemButton
+        onClick={() => {
+          onToggle(detail.uid)
+          onSelectVariables(detail.variables)
+        }}
+      >
+        <ListItemIcon sx={{ minWidth: 32 }}>
+          {isCollapsed ? <ChevronRightIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+        </ListItemIcon>
+        <ListItemText>{detail.name}</ListItemText>
+      </ListItemButton>
+      {!isCollapsed &&
+        detail.items.map((node, i) => (
+          <TreeNode
+            key={`${detail.uid}/${i}`}
+            node={node}
+            id={`${detail.uid}/${i}`}
+            depth={1}
+            collapsedIds={collapsedIds}
+            onToggle={onToggle}
+          />
+        ))}
     </List>
   )
 }

@@ -20,16 +20,31 @@ describe('collectNodeIds', () => {
 })
 
 describe('CollectionTree', () => {
-  it('starts with folders collapsed, hiding their children', () => {
+  it('starts fully collapsed, showing only the collection name', () => {
     render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} />)
+    expect(screen.getByText('Auth API')).toBeInTheDocument()
+    expect(screen.queryByText('Users')).not.toBeInTheDocument()
+  })
+
+  it('expands the collection on click, revealing its top-level folders/items still collapsed', () => {
+    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} />)
+    fireEvent.click(screen.getByText('Auth API'))
     expect(screen.getByText('Users')).toBeInTheDocument()
     expect(screen.queryByText('Login')).not.toBeInTheDocument()
   })
 
-  it('expands a folder on click, revealing its children', () => {
+  it('expands a nested folder on click, revealing its children', () => {
     render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} />)
+    fireEvent.click(screen.getByText('Auth API'))
     fireEvent.click(screen.getByText('Users'))
     expect(screen.getByText('Login')).toBeInTheDocument()
     expect(screen.getByText('Signup')).toBeInTheDocument()
+  })
+
+  it('calls onSelectVariables with the collection variables when the collection row is clicked', () => {
+    const onSelectVariables = vi.fn()
+    render(<CollectionTree detail={detail} onSelectVariables={onSelectVariables} />)
+    fireEvent.click(screen.getByText('Auth API'))
+    expect(onSelectVariables).toHaveBeenCalledWith(detail.variables)
   })
 })
