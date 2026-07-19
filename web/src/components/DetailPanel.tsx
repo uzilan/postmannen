@@ -48,49 +48,58 @@ export function DetailPanel(props: {
   }
 
   const keys = Array.from(new Set(content.details.flatMap((d) => d.values.map((v) => v.key))))
+  const legend = content.details.map((d) => d.name).join(', ')
 
   return (
-    <>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell>Key</TableCell>
-            {content.details.map((d) => (
-              <TableCell key={d.uid}>{d.name}</TableCell>
-            ))}
-            <TableCell />
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {keys.map((key) => (
-            <TableRow key={key}>
-              <TableCell>{key}</TableCell>
-              {content.details.map((d) => {
-                const cell = d.values.find((v) => v.key === key)
-                return (
-                  <TableCell key={d.uid}>
-                    <Checkbox
-                      checked={cell?.enabled ?? false}
-                      onChange={() => onEnabledToggle(d.uid, key)}
-                      size="small"
-                    />
-                    <TextField
-                      variant="standard"
-                      defaultValue={cell?.value ?? ''}
-                      onBlur={(e) => onValueChange(d.uid, key, e.target.value)}
-                    />
-                  </TableCell>
-                )
-              })}
-              <TableCell>
-                <IconButton aria-label={`delete row ${key}`} onClick={() => onDeleteKey(key)} size="small">
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </TableCell>
+    <Box
+      component="fieldset"
+      sx={{ borderColor: 'divider', borderRadius: 1, m: 1, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+    >
+      <Box component="legend" sx={{ px: 1 }}>
+        {legend}
+      </Box>
+      <Box sx={{ overflow: 'auto', flex: 1 }}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Key</TableCell>
+              {content.details.map((d) => (
+                <TableCell key={d.uid}>{d.name}</TableCell>
+              ))}
+              <TableCell />
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHead>
+          <TableBody>
+            {keys.map((key) => (
+              <TableRow key={key}>
+                <TableCell>{key}</TableCell>
+                {content.details.map((d) => {
+                  const cell = d.values.find((v) => v.key === key)
+                  return (
+                    <TableCell key={d.uid}>
+                      <Checkbox
+                        checked={cell?.enabled ?? false}
+                        onChange={() => onEnabledToggle(d.uid, key)}
+                        size="small"
+                      />
+                      <TextField
+                        variant="standard"
+                        defaultValue={cell?.value ?? ''}
+                        onBlur={(e) => onValueChange(d.uid, key, e.target.value)}
+                      />
+                    </TableCell>
+                  )
+                })}
+                <TableCell>
+                  <IconButton aria-label={`delete row ${key}`} onClick={() => onDeleteKey(key)} size="small">
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Box>
       <TextField
         size="small"
         placeholder="new key"
@@ -106,6 +115,6 @@ export function DetailPanel(props: {
       >
         Add key
       </Button>
-    </>
+    </Box>
   )
 }
