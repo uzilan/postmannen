@@ -1,5 +1,8 @@
 import { useState } from 'react'
-import { List, ListItemButton, ListItemText } from '@mui/material'
+import { List, ListItemButton, ListItemIcon, ListItemText } from '@mui/material'
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import type { CollectionDetail, CollectionNode, CollectionVariable } from '../api'
 
 export function collectNodeIds(parentId: string, nodes: CollectionNode[]): string[] {
@@ -20,13 +23,23 @@ function TreeNode(props: {
   const { node, id, depth, collapsedIds, onToggle } = props
 
   if (node.type === 'item') {
-    return <ListItemText inset sx={{ pl: depth * 2 }}>{node.name}</ListItemText>
+    return (
+      <ListItemButton sx={{ pl: depth * 2 + 4 }} disableRipple>
+        <ListItemIcon sx={{ minWidth: 32 }}>
+          <DescriptionOutlinedIcon fontSize="small" />
+        </ListItemIcon>
+        <ListItemText>{node.name}</ListItemText>
+      </ListItemButton>
+    )
   }
 
   const isCollapsed = collapsedIds.has(id)
   return (
     <>
       <ListItemButton onClick={() => onToggle(id)} sx={{ pl: depth * 2 }}>
+        <ListItemIcon sx={{ minWidth: 32 }}>
+          {isCollapsed ? <ChevronRightIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+        </ListItemIcon>
         <ListItemText>{node.name}</ListItemText>
       </ListItemButton>
       {!isCollapsed &&
