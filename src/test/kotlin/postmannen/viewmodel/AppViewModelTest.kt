@@ -224,56 +224,50 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `openComparison with fewer than 2 selected sets status message and does not open`() = runTest {
+    fun `refreshEnvironmentPanel with nothing marked and nothing highlighted stays empty`() = runTest {
         val vm = AppViewModel(FakePostmanApiService(), this)
-        vm.toggleEnvironmentSelection("env-1")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
-        assertEquals("Select at least 2 environments to compare", vm.state.value.statusMessage)
-        assertFalse(vm.state.value.comparisonVisible)
+        assertEquals(emptyList(), vm.state.value.environmentPanelDetails)
     }
 
     @Test
-    fun `viewEnvironment fetches the given environment's detail and opens the overlay without needing selection`() = runTest {
+    fun `refreshEnvironmentPanel with a highlighted id and nothing marked fetches that environment`() = runTest {
         val vm = AppViewModel(FakePostmanApiService(), this)
         vm.loadWorkspaces()
         advanceUntilIdle()
-        vm.viewEnvironment("env-1")
+        vm.refreshEnvironmentPanel("env-1")
         advanceUntilIdle()
-        assertTrue(vm.state.value.comparisonVisible)
-        assertEquals(listOf(FakePostmanApiService.FIXTURE_ENVIRONMENT_DETAIL_STAGING), vm.state.value.comparisonDetails)
-        assertEquals(emptySet(), vm.state.value.selectedEnvironmentIds)
+        assertEquals(listOf(FakePostmanApiService.FIXTURE_ENVIRONMENT_DETAIL_STAGING), vm.state.value.environmentPanelDetails)
     }
 
     @Test
-    fun `viewEnvironment with an unknown id is a no-op`() = runTest {
+    fun `refreshEnvironmentPanel with an unknown highlighted id stays empty`() = runTest {
         val vm = AppViewModel(FakePostmanApiService(), this)
         vm.loadWorkspaces()
         advanceUntilIdle()
-        vm.viewEnvironment("does-not-exist")
+        vm.refreshEnvironmentPanel("does-not-exist")
         advanceUntilIdle()
-        assertFalse(vm.state.value.comparisonVisible)
+        assertEquals(emptyList(), vm.state.value.environmentPanelDetails)
     }
 
     @Test
-    fun `openComparison with 2 selected fetches both details and opens`() = runTest {
-        val fake = FakePostmanApiService()
-        val vm = AppViewModel(fake, this)
+    fun `refreshEnvironmentPanel with 2+ marked shows the marked set regardless of highlighted id`() = runTest {
+        val vm = AppViewModel(FakePostmanApiService(), this)
         vm.loadWorkspaces()
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel("does-not-matter")
         advanceUntilIdle()
-        assertTrue(vm.state.value.comparisonVisible)
         assertEquals(
             setOf(FakePostmanApiService.FIXTURE_ENVIRONMENT_DETAIL_STAGING, FakePostmanApiService.FIXTURE_ENVIRONMENT_DETAIL_PRODUCTION),
-            vm.state.value.comparisonDetails.toSet()
+            vm.state.value.environmentPanelDetails.toSet()
         )
     }
 
     @Test
-    fun `openComparison aborts and surfaces error when one fetch fails`() = runTest {
+    fun `refreshEnvironmentPanel keeps the environments that succeeded and surfaces an error for the one that failed`() = runTest {
         val fake = FakePostmanApiService()
         val vm = AppViewModel(fake, this)
         vm.loadWorkspaces()
@@ -284,24 +278,24 @@ class AppViewModelTest {
         )
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
-        assertFalse(vm.state.value.comparisonVisible)
-        assertTrue(vm.state.value.statusMessage.contains("detail fetch failed"))
+        assertEquals(listOf(FakePostmanApiService.FIXTURE_ENVIRONMENT_DETAIL_STAGING), vm.state.value.environmentPanelDetails)
+        assertTrue(vm.state.value.statusMessage.contains("Production"))
     }
 
     @Test
-    fun `closeComparison hides the overlay`() = runTest {
+    fun `refreshEnvironmentPanel called again with the same resulting set does not refetch`() = runTest {
         val fake = FakePostmanApiService()
         val vm = AppViewModel(fake, this)
         vm.loadWorkspaces()
         advanceUntilIdle()
-        vm.toggleEnvironmentSelection("env-1")
-        vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel("env-1")
         advanceUntilIdle()
-        vm.closeComparison()
-        assertFalse(vm.state.value.comparisonVisible)
+        fake.environmentDetailResults = mapOf("env-1-uid" to Result.failure(RuntimeException("should not be called")))
+        vm.refreshEnvironmentPanel("env-1")
+        advanceUntilIdle()
+        assertEquals(listOf(FakePostmanApiService.FIXTURE_ENVIRONMENT_DETAIL_STAGING), vm.state.value.environmentPanelDetails)
     }
 
     @Test
@@ -333,11 +327,11 @@ class AppViewModelTest {
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
         vm.updateEnvironmentValue("env-1-uid", "BASE_URL", "https://new-staging.example.com")
         advanceUntilIdle()
-        val updated = vm.state.value.comparisonDetails.first { it.uid == "env-1-uid" }
+        val updated = vm.state.value.environmentPanelDetails.first { it.uid == "env-1-uid" }
         val entry = updated.values.first { it.key == "BASE_URL" }
         assertEquals("https://new-staging.example.com", entry.value)
         assertTrue(entry.enabled)
@@ -352,11 +346,11 @@ class AppViewModelTest {
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
         vm.updateEnvironmentValue("env-2-uid", "API_KEY", "prod_xxx")
         advanceUntilIdle()
-        val updated = vm.state.value.comparisonDetails.first { it.uid == "env-2-uid" }
+        val updated = vm.state.value.environmentPanelDetails.first { it.uid == "env-2-uid" }
         val entry = updated.values.first { it.key == "API_KEY" }
         assertEquals("prod_xxx", entry.value)
         assertTrue(entry.enabled)
@@ -371,11 +365,11 @@ class AppViewModelTest {
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
         vm.toggleEnvironmentValueEnabled("env-1-uid", "BASE_URL")
         advanceUntilIdle()
-        val updated = vm.state.value.comparisonDetails.first { it.uid == "env-1-uid" }
+        val updated = vm.state.value.environmentPanelDetails.first { it.uid == "env-1-uid" }
         assertFalse(updated.values.first { it.key == "BASE_URL" }.enabled)
         assertTrue(updated.values.first { it.key == "API_KEY" }.enabled)
     }
@@ -388,48 +382,48 @@ class AppViewModelTest {
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
-        val before = vm.state.value.comparisonDetails
+        val before = vm.state.value.environmentPanelDetails
         vm.toggleEnvironmentValueEnabled("env-2-uid", "API_KEY")
         advanceUntilIdle()
-        assertEquals(before, vm.state.value.comparisonDetails)
+        assertEquals(before, vm.state.value.environmentPanelDetails)
         assertEquals(null, fake.lastUpdatedEnvironmentDetail)
     }
 
     @Test
-    fun `updateEnvironmentValue on failure leaves comparisonDetails untouched and surfaces error`() = runTest {
+    fun `updateEnvironmentValue on failure leaves environmentPanelDetails untouched and surfaces error`() = runTest {
         val fake = FakePostmanApiService()
         val vm = AppViewModel(fake, this)
         vm.loadWorkspaces()
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
-        val before = vm.state.value.comparisonDetails
+        val before = vm.state.value.environmentPanelDetails
         fake.updateEnvironmentResult = Result.failure(RuntimeException("save failed"))
         vm.updateEnvironmentValue("env-1-uid", "BASE_URL", "https://changed.example.com")
         advanceUntilIdle()
-        assertEquals(before, vm.state.value.comparisonDetails)
+        assertEquals(before, vm.state.value.environmentPanelDetails)
         assertTrue(vm.state.value.statusMessage.contains("save failed"))
     }
 
     @Test
-    fun `toggleEnvironmentValueEnabled on failure leaves comparisonDetails untouched and surfaces error`() = runTest {
+    fun `toggleEnvironmentValueEnabled on failure leaves environmentPanelDetails untouched and surfaces error`() = runTest {
         val fake = FakePostmanApiService()
         val vm = AppViewModel(fake, this)
         vm.loadWorkspaces()
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
-        val before = vm.state.value.comparisonDetails
+        val before = vm.state.value.environmentPanelDetails
         fake.updateEnvironmentResult = Result.failure(RuntimeException("toggle failed"))
         vm.toggleEnvironmentValueEnabled("env-1-uid", "BASE_URL")
         advanceUntilIdle()
-        assertEquals(before, vm.state.value.comparisonDetails)
+        assertEquals(before, vm.state.value.environmentPanelDetails)
         assertTrue(vm.state.value.statusMessage.contains("toggle failed"))
     }
 
@@ -441,12 +435,12 @@ class AppViewModelTest {
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
         vm.updateEnvironmentValue("env-1-uid", "BASE_URL", "https://a.example.com")
         vm.updateEnvironmentValue("env-1-uid", "API_KEY", "new_key")
         advanceUntilIdle()
-        val updated = vm.state.value.comparisonDetails.first { it.uid == "env-1-uid" }
+        val updated = vm.state.value.environmentPanelDetails.first { it.uid == "env-1-uid" }
         assertEquals("https://a.example.com", updated.values.first { it.key == "BASE_URL" }.value)
         assertEquals("new_key", updated.values.first { it.key == "API_KEY" }.value)
     }
@@ -459,13 +453,13 @@ class AppViewModelTest {
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
-        val before = vm.state.value.comparisonDetails
+        val before = vm.state.value.environmentPanelDetails
         vm.renameEnvironmentKey("BASE_URL", "")
         vm.renameEnvironmentKey("BASE_URL", "BASE_URL")
         advanceUntilIdle()
-        assertEquals(before, vm.state.value.comparisonDetails)
+        assertEquals(before, vm.state.value.environmentPanelDetails)
         assertEquals(null, fake.lastUpdatedEnvironmentDetail)
     }
 
@@ -477,12 +471,12 @@ class AppViewModelTest {
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
         vm.renameEnvironmentKey("BASE_URL", "NEW_BASE_URL")
         advanceUntilIdle()
-        val staging = vm.state.value.comparisonDetails.first { it.uid == "env-1-uid" }
-        val production = vm.state.value.comparisonDetails.first { it.uid == "env-2-uid" }
+        val staging = vm.state.value.environmentPanelDetails.first { it.uid == "env-1-uid" }
+        val production = vm.state.value.environmentPanelDetails.first { it.uid == "env-2-uid" }
         assertTrue(staging.values.any { it.key == "NEW_BASE_URL" })
         assertTrue(staging.values.none { it.key == "BASE_URL" })
         assertTrue(production.values.any { it.key == "NEW_BASE_URL" })
@@ -497,13 +491,13 @@ class AppViewModelTest {
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
-        val before = vm.state.value.comparisonDetails
+        val before = vm.state.value.environmentPanelDetails
         // Staging already has API_KEY, so renaming BASE_URL -> API_KEY collides there.
         vm.renameEnvironmentKey("BASE_URL", "API_KEY")
         advanceUntilIdle()
-        assertEquals(before, vm.state.value.comparisonDetails)
+        assertEquals(before, vm.state.value.environmentPanelDetails)
         assertEquals(null, fake.lastUpdatedEnvironmentDetail)
         assertTrue(vm.state.value.statusMessage.contains("Staging"))
     }
@@ -516,15 +510,15 @@ class AppViewModelTest {
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
-        val before = vm.state.value.comparisonDetails
+        val before = vm.state.value.environmentPanelDetails
         fake.updateEnvironmentHandler = { detail ->
             if (detail.uid == "env-2-uid") Result.failure(RuntimeException("boom")) else Result.success(Unit)
         }
         vm.renameEnvironmentKey("BASE_URL", "NEW_BASE_URL")
         advanceUntilIdle()
-        assertEquals(before, vm.state.value.comparisonDetails)
+        assertEquals(before, vm.state.value.environmentPanelDetails)
         assertTrue(vm.state.value.statusMessage.contains("boom"))
     }
 
@@ -536,7 +530,7 @@ class AppViewModelTest {
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
         // env-2's rename call always fails. env-1's rename call (its first call)
         // succeeds, triggering a rollback — but env-1's rollback call (its second
@@ -564,12 +558,12 @@ class AppViewModelTest {
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
         vm.renameEnvironmentKey("BASE_URL", "NEW_BASE_URL")
         vm.updateEnvironmentValue("env-1-uid", "API_KEY", "changed_key_value")
         advanceUntilIdle()
-        val staging = vm.state.value.comparisonDetails.first { it.uid == "env-1-uid" }
+        val staging = vm.state.value.environmentPanelDetails.first { it.uid == "env-1-uid" }
         assertTrue(staging.values.any { it.key == "NEW_BASE_URL" })
         assertEquals("changed_key_value", staging.values.first { it.key == "API_KEY" }.value)
     }
@@ -582,12 +576,12 @@ class AppViewModelTest {
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
         vm.deleteEnvironmentKey("BASE_URL")
         advanceUntilIdle()
-        val staging = vm.state.value.comparisonDetails.first { it.uid == "env-1-uid" }
-        val production = vm.state.value.comparisonDetails.first { it.uid == "env-2-uid" }
+        val staging = vm.state.value.environmentPanelDetails.first { it.uid == "env-1-uid" }
+        val production = vm.state.value.environmentPanelDetails.first { it.uid == "env-2-uid" }
         assertTrue(staging.values.none { it.key == "BASE_URL" })
         assertTrue(production.values.none { it.key == "BASE_URL" })
     }
@@ -600,12 +594,12 @@ class AppViewModelTest {
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
-        val before = vm.state.value.comparisonDetails
+        val before = vm.state.value.environmentPanelDetails
         vm.deleteEnvironmentKey("NOT_A_REAL_KEY")
         advanceUntilIdle()
-        assertEquals(before, vm.state.value.comparisonDetails)
+        assertEquals(before, vm.state.value.environmentPanelDetails)
         assertEquals(null, fake.lastUpdatedEnvironmentDetail)
     }
 
@@ -617,15 +611,15 @@ class AppViewModelTest {
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
-        val before = vm.state.value.comparisonDetails
+        val before = vm.state.value.environmentPanelDetails
         fake.updateEnvironmentHandler = { detail ->
             if (detail.uid == "env-2-uid") Result.failure(RuntimeException("boom")) else Result.success(Unit)
         }
         vm.deleteEnvironmentKey("BASE_URL")
         advanceUntilIdle()
-        assertEquals(before, vm.state.value.comparisonDetails)
+        assertEquals(before, vm.state.value.environmentPanelDetails)
         assertTrue(vm.state.value.statusMessage.contains("boom"))
     }
 
@@ -637,7 +631,7 @@ class AppViewModelTest {
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
         val callCounts = mutableMapOf<String, Int>()
         fake.updateEnvironmentHandler = { detail ->
@@ -662,12 +656,12 @@ class AppViewModelTest {
         advanceUntilIdle()
         vm.toggleEnvironmentSelection("env-1")
         vm.toggleEnvironmentSelection("env-2")
-        vm.openComparison()
+        vm.refreshEnvironmentPanel(null)
         advanceUntilIdle()
         vm.deleteEnvironmentKey("BASE_URL")
         vm.updateEnvironmentValue("env-1-uid", "API_KEY", "changed_key_value")
         advanceUntilIdle()
-        val staging = vm.state.value.comparisonDetails.first { it.uid == "env-1-uid" }
+        val staging = vm.state.value.environmentPanelDetails.first { it.uid == "env-1-uid" }
         assertTrue(staging.values.none { it.key == "BASE_URL" })
         assertEquals("changed_key_value", staging.values.first { it.key == "API_KEY" }.value)
     }

@@ -160,40 +160,36 @@ class AppViewModel(
         }
     }
 
-    fun openComparison() {
-        val selectedIds = _state.value.selectedEnvironmentIds
-        if (selectedIds.size < 2) {
-            update { copy(statusMessage = "Select at least 2 environments to compare") }
-            return
-        }
-        val targets = _state.value.environments.filter { it.id in selectedIds }
-        openDetailsOverlay(targets)
-    }
-
-    fun viewEnvironment(id: String) {
-        val target = _state.value.environments.firstOrNull { it.id == id } ?: return
-        openDetailsOverlay(listOf(target))
-    }
-
-    private fun openDetailsOverlay(targets: List<Environment>) {
+    // Drives the right panel automatically: 0 or 1 marked environments follow the
+    // highlighted (cursor) row; 2+ marked show the marked set together, regardless of
+    // where the cursor is — this mirrors the old v (cursor, ignores marks) / c (marks,
+    // needs 2+) split exactly, just triggered reactively instead of by keypress.
+    // The equality guard avoids redundant state updates (and the recomposition that
+    // comes with them) when the target set hasn't changed — important since callers
+    // invoke this on every cursor movement. The getEnvironmentDetail calls themselves
+    // are cheap regardless, since CachingPostmanApiService serves repeats from cache.
+    fun refreshEnvironmentPanel(highlightedEnvironmentId: String?) {
+        val state = _state.value
+        val targetIds = if (state.selectedEnvironmentIds.size >= 2) state.selectedEnvironmentIds
+                         else highlightedEnvironmentId?.let { setOf(it) } ?: emptySet()
+        if (targetIds == state.environmentPanelDetails.map { it.id }.toSet()) return
+        val targets = state.environments.filter { it.id in targetIds }
         scope.launch {
-            val results = targets.map { env -> scope.async { service.getEnvironmentDetail(env.uid) } }.awaitAll()
-            val firstFailure = results.firstOrNull { it.isFailure }
-            if (firstFailure != null) {
-                update { copy(statusMessage = "Error: ${firstFailure.exceptionOrNull()?.message}") }
-                return@launch
+            val results = targets.map { env -> env to scope.async { service.getEnvironmentDetail(env.uid) } }
+                .map { (env, deferred) -> env to deferred.await() }
+            val details = results.mapNotNull { (_, result) -> result.getOrNull() }
+            val failedNames = results.filter { (_, result) -> result.isFailure }.map { (env, _) -> env.name }
+            update {
+                copy(
+                    environmentPanelDetails = details,
+                    statusMessage = if (failedNames.isNotEmpty()) "Error loading: ${failedNames.joinToString(", ")}" else statusMessage
+                )
             }
-            val details = results.map { it.getOrThrow() }
-            update { copy(comparisonDetails = details, comparisonVisible = true) }
         }
-    }
-
-    fun closeComparison() {
-        update { copy(comparisonVisible = false) }
     }
 
     fun updateEnvironmentValue(environmentUid: String, key: String, newValue: String) {
-        val current = _state.value.comparisonDetails.find { it.uid == environmentUid } ?: return
+        val current = _state.value.environmentPanelDetails.find { it.uid == environmentUid } ?: return
         val existingIndex = current.values.indexOfFirst { it.key == key }
         val newValues = if (existingIndex >= 0) {
             current.values.toMutableList().also { it[existingIndex] = it[existingIndex].copy(value = newValue) }
@@ -204,12 +200,12 @@ class AppViewModel(
         scope.launch {
             service.updateEnvironment(updatedDetail)
                 .onSuccess {
-                    // Merge into whatever comparisonDetails is *now*, not the snapshot taken
-                    // before this PUT started — a concurrent edit to a different key in the
-                    // same environment may have already landed, and overwriting wholesale
+                    // Merge into whatever environmentPanelDetails is *now*, not the snapshot
+                    // taken before this PUT started — a concurrent edit to a different key in
+                    // the same environment may have already landed, and overwriting wholesale
                     // from a stale snapshot would silently revert it.
                     update {
-                        copy(comparisonDetails = comparisonDetails.map { detail ->
+                        copy(environmentPanelDetails = environmentPanelDetails.map { detail ->
                             if (detail.uid != environmentUid) return@map detail
                             val idx = detail.values.indexOfFirst { it.key == key }
                             val mergedValues = if (idx >= 0) {
@@ -228,7 +224,7 @@ class AppViewModel(
     }
 
     fun toggleEnvironmentValueEnabled(environmentUid: String, key: String) {
-        val current = _state.value.comparisonDetails.find { it.uid == environmentUid } ?: return
+        val current = _state.value.environmentPanelDetails.find { it.uid == environmentUid } ?: return
         val existingIndex = current.values.indexOfFirst { it.key == key }
         if (existingIndex < 0) return
         val newEnabled = !current.values[existingIndex].enabled
@@ -239,7 +235,7 @@ class AppViewModel(
                 .onSuccess {
                     // Same merge-not-replace reasoning as updateEnvironmentValue above.
                     update {
-                        copy(comparisonDetails = comparisonDetails.map { detail ->
+                        copy(environmentPanelDetails = environmentPanelDetails.map { detail ->
                             if (detail.uid != environmentUid) return@map detail
                             val idx = detail.values.indexOfFirst { it.key == key }
                             if (idx < 0) return@map detail
@@ -256,7 +252,7 @@ class AppViewModel(
 
     fun renameEnvironmentKey(oldKey: String, newKey: String) {
         if (newKey.isBlank() || newKey == oldKey) return
-        val affected = _state.value.comparisonDetails.filter { detail -> detail.values.any { it.key == oldKey } }
+        val affected = _state.value.environmentPanelDetails.filter { detail -> detail.values.any { it.key == oldKey } }
         if (affected.isEmpty()) return
 
         val collision = affected.firstOrNull { detail -> detail.values.any { it.key == newKey } }
@@ -291,17 +287,18 @@ class AppViewModel(
     // Shared by renameEnvironmentKey and deleteEnvironmentKey: find every environment
     // that currently has `key`, apply `buildUpdatedDetail` to each and PUT them all
     // concurrently. On full success, merge each affected environment's result into
-    // whatever comparisonDetails is *now* (via mergeIntoCurrent), not a stale snapshot —
-    // same reasoning as updateEnvironmentValue/toggleEnvironmentValueEnabled above. On
-    // any failure, roll back every environment that did succeed by re-PUTting its
-    // original (untransformed) detail, and never touch comparisonDetails.
+    // whatever environmentPanelDetails is *now* (via mergeIntoCurrent), not a stale
+    // snapshot — same reasoning as updateEnvironmentValue/toggleEnvironmentValueEnabled
+    // above. On any failure, roll back every environment that did succeed by
+    // re-PUTting its original (untransformed) detail, and never touch
+    // environmentPanelDetails.
     private fun fanOutKeyUpdate(
         key: String,
         operationName: String,
         buildUpdatedDetail: (EnvironmentDetail) -> EnvironmentDetail,
         mergeIntoCurrent: (EnvironmentDetail) -> EnvironmentDetail
     ) {
-        val affected = _state.value.comparisonDetails.filter { detail -> detail.values.any { it.key == key } }
+        val affected = _state.value.environmentPanelDetails.filter { detail -> detail.values.any { it.key == key } }
         if (affected.isEmpty()) return
 
         val transformed = affected.map { detail -> detail to buildUpdatedDetail(detail) }
@@ -317,7 +314,7 @@ class AppViewModel(
             if (failed.isEmpty()) {
                 val affectedUids = affected.map { it.uid }.toSet()
                 update {
-                    copy(comparisonDetails = comparisonDetails.map { detail ->
+                    copy(environmentPanelDetails = environmentPanelDetails.map { detail ->
                         if (detail.uid !in affectedUids) detail else mergeIntoCurrent(detail)
                     })
                 }

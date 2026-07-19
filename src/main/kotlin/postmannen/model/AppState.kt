@@ -9,8 +9,7 @@ data class AppState(
     val environments: List<Environment> = emptyList(),
     val activeTab: Tab = Tab.COLLECTIONS,
     val selectedEnvironmentIds: Set<String> = emptySet(),
-    val comparisonVisible: Boolean = false,
-    val comparisonDetails: List<EnvironmentDetail> = emptyList(),
+    val environmentPanelDetails: List<EnvironmentDetail> = emptyList(),
     val loading: Boolean = false,
     val statusMessage: String = ""
 )
