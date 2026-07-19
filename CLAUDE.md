@@ -4,27 +4,66 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`postmannen` is a Kotlin/Lanterna terminal UI for browsing Postman data
-(workspaces, collections, environments) via Postman's public REST API
-(`https://api.getpostman.com`). It is modeled directly on `~/dev/breui`
-(same author, same architecture) — when in doubt about a pattern, check
-that repo for a proven-working precedent before inventing a new one.
+`postmannen` is a Kotlin/Ktor REST API plus a React/TypeScript frontend
+for browsing Postman data (workspaces, collections, environments) via
+Postman's public REST API (`https://api.getpostman.com`). It was
+originally a Lanterna terminal UI; that TUI has been replaced by this
+REST+React stack (see `docs/superpowers/specs/2026-07-19-rest-api-react-migration-design.md`
+for the rationale — accumulating Lanterna widget-level workarounds, not
+a fundamental problem with the app's navigation needs). Chat (the old
+`ChatPanel`/`ClaudeCliSessionImpl` Claude-CLI integration) is not yet
+ported — it's deferred to a follow-up spec, along with any server-side
+session/context state a chat re-port would need.
+
+## Repo layout
+
+- **`src/main/kotlin/postmannen/`** — the Kotlin/JVM side.
+  - `model/` — plain data classes (`Workspace`, `Collection`,
+    `CollectionDetail`, `CollectionNode`, `Environment`,
+    `EnvironmentDetail`, etc.), all `@Serializable` so the server can
+    `call.respond(...)` them directly with no separate DTO layer.
+    `CollectionNode` is a `@Serializable sealed class` with
+    `@SerialName("folder")`/`@SerialName("item")` on its subtypes —
+    kotlinx.serialization's automatic polymorphism handles the
+    `"type"` discriminator.
+  - `service/` — `PostmanApiService` (interface), `PostmanApiServiceImpl`
+    (real Ktor-client-backed implementation), `CachingPostmanApiService`
+    (in-memory read/write-through cache decorator). Unchanged by the
+    REST migration — this layer was already UI-agnostic.
+  - `server/` — the Ktor server: `ServerMain.kt` (entry point,
+    `embeddedServer(CIO, port = 8080)`), one route file per resource
+    area (`WorkspaceRoutes.kt`, `CollectionRoutes.kt`,
+    `EnvironmentRoutes.kt`), and `RouteSupport.kt` (shared
+    `Result<T>` → HTTP response mapping).
+- **`web/`** — Vite + React + TypeScript + MUI frontend. Plain `fetch()`
+  calls via `web/src/api.ts`, no state library — component-local state
+  only (`useState`), no server-side session.
 
 ## Commands
 
+Backend:
 ```bash
 ./gradlew build              # compile + run all tests
 ./gradlew test                                          # unit tests only
-./gradlew test --tests "postmannen.viewmodel.AppViewModelTest"  # one class
-./gradlew test --tests "postmannen.viewmodel.AppViewModelTest.loadWorkspaces sets workspaces and clears loading"  # one test
-./gradlew run                # run the TUI (needs POSTMAN_API_KEY set)
+./gradlew test --tests "postmannen.server.EnvironmentRoutesTest"  # one class
+POSTMAN_API_KEY=... ./gradlew runServer      # run the REST API on :8080
 ./gradlew shadowJar           # build the fat jar (build/libs/postmannen.jar)
-java -jar build/libs/postmannen.jar   # run the fat jar directly
+java -jar build/libs/postmannen.jar   # run the fat jar directly (once mainClass points at ServerMainKt)
 ```
 
-`POSTMAN_API_KEY` is required at runtime — `Main` fails fast (stderr +
-exit 1) if it's missing or blank, before the screen starts. Never
-hardcode or log it.
+Frontend:
+```bash
+cd web
+npm run dev     # Vite dev server; proxies /api/* to http://localhost:8080 (see vite.config.ts)
+npm test        # Vitest + React Testing Library
+npx tsc -b --noEmit   # type-check
+```
+
+`POSTMAN_API_KEY` is required at runtime — `ServerMain` fails fast
+(stderr + exit 1) if it's missing or blank, before the server starts.
+Never hardcode or log it. The server is localhost-only with no
+auth — this is a single-user local tool, same trust model as the old
+TUI reading the env var directly.
 
 There is one integration test, `PostmanApiServiceImplTest`, tagged
 `@Tag("integration")`. It calls the real Postman API and self-skips via
@@ -34,170 +73,127 @@ failed.
 
 ## Architecture
 
-MVVM, one direction of data flow, single source of truth:
+### Backend (`server/`)
 
-```
-service (PostmanApiService) → viewmodel (AppViewModel) → ui (App)
-```
+Thin routes delegating straight to `PostmanApiService` — no business
+logic lives in the route layer:
 
-- **`AppViewModel`** holds one `MutableStateFlow<AppState>`. Every mutation
-  goes through `update { copy(...) }` — never touch `_state` directly from
-  outside that pattern. All `load*` methods follow the same shape: set
-  `loading = true`, call the service, `onSuccess` update the relevant
-  field, `onFailure` set `statusMessage = "Error: ..."` and leave the
-  existing list untouched. That "preserve last-known-good data on
-  failure" rule is deliberate — a transient network error should never
-  blank a list the user was already looking at.
-- **Collections tree**: `CollectionNode` (sealed: `Folder`/`RequestItem`)
-  and `CollectionDetail` model a collection's folder/request tree,
-  fetched per-collection via `getCollectionDetail` and flattened for
-  display by `TabbedListPanel.flatten`/`flattenChildren`. Node ids are
-  **position-based paths** (`collectionUid`, `collectionUid/0`,
-  `collectionUid/0/1`, ...), not name- or content-based — Postman allows
-  duplicate sibling names and folders/requests carry no stable id of
-  their own. `AppViewModel.collectFolderIds` uses the identical scheme to
-  seed `collapsedNodeIds` (everything starts collapsed); the two must
-  stay in lockstep or a folder collapsed in one place won't match the row
-  the UI tries to toggle. Accepted trade-off: reordering items in Postman
-  between loads can make a previously-expanded folder appear collapsed
-  again.
-- **`AppState`** is the one place all UI-relevant state lives — workspace
-  list, selected index, collections + their trees (`collectionDetails`,
-  `collapsedNodeIds`), environments, active tab, the marked-for-compare
-  selection set, `environmentPanelDetails` (whatever the right panel is
-  currently showing for the Environments tab), loading, status message.
-  `App` never holds its own copy of anything the ViewModel already owns;
-  it only tracks `last*` snapshot fields to skip redundant Lanterna
-  widget rebuilds (see below), plus a couple of UI-only concerns the
-  ViewModel has no business knowing (`gridFocused`, pending focus after a
-  workspace switch).
-- **`App.kt`** is the single Lanterna window. A background coroutine
-  collects `viewModel.state` and calls `applyState()` under
-  `synchronized(gui)`, then `gui.updateScreen()`. `applyState()` diffs
-  incoming state against `last*` fields before touching any widget —
-  Lanterna list boxes lose their focus/selection position on
-  `clearItems()`, so a naive "always rebuild" approach causes visible
-  selection jumps (this bit us once — see `itemListBox`'s
-  `previousIndex` capture/restore in `applyState`).
-- **Keybindings** are handled at the window level via a
-  `WindowListenerAdapter.onUnhandledInput`, not per-widget — this is how
-  `q`-quit, `r`-refresh, and arrow-key tab switching all work regardless
-  of which widget currently has focus. `Ctrl+N`/`Ctrl+D` are
-  context-sensitive there: `App` tracks a `gridFocused: Boolean` (see the
-  `EnvironmentGridPanel` bullet below) and routes those keys to either
-  "create new environment" or "add/delete a key row" depending on it.
-  Popup windows (`NamePromptOverlay`, `ConfirmOverlay`) get their own
-  listener for their own keys (`Escape`, `Enter`); they don't share the
-  main window's listener.
-- **`Tab` cannot be caught at the window level.** Lanterna reserves `Tab`
-  for its own default focus-cycling and claims it before
-  `onUnhandledInput` ever sees it — the same class of problem as the
-  `TextBox` gotcha below, just one level up. `App` uses `Tab` to move
-  focus from the tree list into the environment-editing grid (see next
-  bullet), and the only place that reliably works is intercepting it
-  inside `TabbedListPanel`'s `itemListBox.handleKeyStroke` override
-  (`onTabKey`, alongside the existing `onSpaceKey`/`onEnterKey`) — same
-  pattern, same reason. Exiting the grid uses `Escape` instead, which
-  *does* reach the window listener reliably (proven by the old
-  `ComparisonOverlay` popup, which relied on exactly this for its own
-  dismiss behavior) — don't try to make `Tab` bidirectional at the widget
-  level; the asymmetry is deliberate, not an oversight.
-- **Custom Lanterna widgets** (`WorkspaceDropdown`, the highlighted
-  `itemListBox` in `App.kt`) use a `ListItemRenderer`/`ComboBoxRenderer`
-  override to get the black-on-`TextColor.ANSI.GREEN` highlight style
-  used throughout the app. `WorkspaceDropdown` also reaches into
-  `ComboBox`'s private `popupWindow` field via reflection to apply the
-  same highlight to the open dropdown's popup list — Lanterna gives no
-  public extension point for that, so the reflection is intentional, not
-  a hack to clean up.
-- **`TextBox`**: Lanterna's default `TextBox` renderer fills unused width
-  with `.` characters, which reads as a distracting placeholder/mask in
-  this app's UI. Every `TextBox` we create must call
-  `(box.renderer as? TextBox.DefaultTextBoxRenderer)?.setUnusedSpaceCharacter(' ')`
-  right after construction — see `EnvironmentGridPanel`'s `keyBox`/`valueBox`
-  and `NamePromptOverlay`'s `nameBox` for the pattern.
-  Separately, Lanterna's default `TextBox.handleKeyStroke` claims `Enter`
-  (moves focus to the next component) and `Ctrl`+character combos as
-  literal text input, so those keystrokes never reach the containing
-  window's `onUnhandledInput` while the box has focus — which is most of
-  the time, since these boxes take focus on open. Any `TextBox` that needs
-  to react to `Enter`, `Escape`, or a `Ctrl`+key shortcut must override
-  `handleKeyStroke` on the box itself and intercept before falling through
-  to `super.handleKeyStroke(...)`; a window-level listener alone is not
-  enough. See `NamePromptOverlay.nameBox` (`Enter`/`Escape`) and
-  `EnvironmentGridPanel`'s `handleAddDeleteShortcut` (`Ctrl+N`/`Ctrl+D`).
-- **`DetailPanel`** is the right-hand panel (`App.kt` splits its center
-  area into `tabbedListPanel` + `detailPanel`, hidden entirely when the
-  active tab's list is empty). It dispatches on a `DetailContent` sealed
-  type: `None`/`Loading`/`CollectionVariables` (Collections tab, driven
-  by whatever's highlighted) and `Environments` (Environments tab). The
-  `Environments` case is the one to be careful with: it hosts an
-  `EnvironmentGridPanel` — ported from what used to be a separate popup
-  window (`ComparisonOverlay`, deleted) into an embeddable `Panel` — and
-  **rebuilds it only when the shown environment uid *set* changes**,
-  patching values in place (`applyDetails`) otherwise. This matters
-  because a fresh `Panel` has no Lanterna focus of its own (unlike
-  opening a brand-new popup window, which Lanterna auto-focuses),
-  while patching must *not* touch focus at all or it fights the user's
-  own in-grid `Tab` navigation mid-edit. `applyContent` returns whether a
-  rebuild happened so `App` knows whether it must explicitly refocus.
-- **Which environment(s) the right panel shows** is entirely reactive,
-  no keypress required: `AppViewModel.refreshEnvironmentPanel(highlightedId)`
-  mirrors the old `v`/`c` split automatically — 0 or 1 marked
-  environments follow the cursor, 2+ marked show the marked set
-  regardless of cursor. It's called from `App`'s `refreshDetailPanel()`,
-  itself invoked both reactively (every `AppState` emission) and directly
-  from cursor-movement (`onSelectionMaybeChanged`) since pure list
-  navigation never touches `AppState`. An equality guard skips redundant
-  fetches when the target set hasn't changed — but note that guard only
-  helps once a fetch has *succeeded* (`CachingPostmanApiService` doesn't
-  cache failures), so a repeatedly-failing highlighted environment will
-  keep re-hitting the network on unrelated state changes; accepted as a
-  minor, bounded cost, not a bug to chase.
-- **Service layer**: `PostmanApiService` is the interface; `PostmanApiServiceImpl`
-  is the real Ktor-backed implementation (one shared `HttpClient` with
-  `X-Api-Key` auth baked into `defaultRequest`); `FakePostmanApiService`
-  (test-only) is a fixture-based fake used by `AppViewModelTest` — no
-  mocking library, just a hand-rolled fake with mutable `*Result` fields
-  the test can override per-case. Every service method returns
-  `Result<T>`, never throws past the `runCatching` boundary in the impl.
-  `CachingPostmanApiService` decorates `PostmanApiServiceImpl` (composed
-  in `Main.kt`) with an in-memory, session-lifetime, read/write-through
-  cache — every read caches on success; `updateEnvironment`/`createEnvironment`
-  write through on success instead of invalidating, so the app's own
-  edits never go stale. `PostmanApiService.invalidateWorkspace(workspaceId)`
-  has a default no-op body specifically so `PostmanApiServiceImpl` and
-  `FakePostmanApiService` need zero changes for it — only the caching
-  decorator overrides it meaningfully, driven by the `r`-refresh key.
-- **Concurrent fetches**: two call sites launch several requests in
-  parallel via `scope.async { ... }.awaitAll()` rather than a sequential
-  loop — `loadCollections`'s per-collection tree fetch and
-  `AppViewModel.refreshEnvironmentPanel`'s per-environment detail fetch.
-  Both are **per-item resilient, not all-or-nothing**: a single failure
-  is dropped (`mapNotNull { it.getOrNull() }`) and its name surfaced in
-  `statusMessage`, while whatever succeeded still populates state. This
-  was a deliberate choice over the all-or-nothing pattern an earlier,
-  now-removed method (`openComparison`) used — these are passive
-  background/reactive fetches, not a single user-initiated action across
-  a small fixed set, so one bad item shouldn't blank everything else.
+- `GET /api/workspaces`, `GET /api/workspaces/{id}` (→ that workspace's
+  collections), `POST /api/workspaces/{id}/refresh` (→
+  `invalidateWorkspace`, cache-bust equivalent of the old TUI's `r` key).
+- `GET /api/collections/{uid}` (→ folder/request tree + variables).
+- `GET /api/environments?workspaceId=`, `GET /api/environments/{uid}`,
+  `PUT /api/environments/{uid}`, `POST /api/environments`.
 
-- **Chat panel**: `ChatViewModel` owns its own `MutableStateFlow<ChatState>`,
-  fully independent of `AppState`/`AppViewModel` — the only link back is a
-  plain `onWorkspaceMutated: () -> Unit` callback. `ClaudeCliSessionImpl`
-  spawns the local `claude` CLI headless (`-p`) with `--mcp-config`
-  pointing at Postman's official MCP server in minimal mode, passing
-  `--resume <sessionId>` for cross-turn continuity — a fresh subprocess
-  per turn, not one long-lived process. Assistant turns that used a
-  write-classified MCP tool (`create_`/`update_`/`delete_`/`put_`/`patch_`
-  prefix) trigger `AppViewModel.refreshWorkspace()`; read-only tools don't.
-  `Ctrl+K` focuses the chat input (tracked via a `chatFocused` flag
-  alongside `gridFocused`); `Escape` returns focus to the list from
-  either.
+`RouteSupport.kt`'s `respondResult`/`respondUnitResult` map
+`Result<T>`/`Result<Unit>` from the service layer to HTTP responses —
+success → the value (or 204 for Unit), failure → 502 + a JSON
+`{"error": "..."}` body. Every route handler is a one-liner built on
+top of these.
+
+**Ktor content-negotiation gotcha**: `install(ContentNegotiation) { json(Json { ... }) }`
+requires calling the `json(...)` function with the `Json` instance —
+merely constructing a `Json { ... }` object inside the block and
+discarding it registers no converter and silently breaks
+(de)serialization. This bit the route tests once; every
+`testApplication` block and `ServerMain.kt` must call
+`json(Json { ignoreUnknownKeys = true })`, not just `Json { ... }`.
+
+No compare-specific endpoint exists — the client fires parallel
+`GET /api/environments/{uid}` requests for each marked environment
+(same per-item-resilient pattern the old `AppViewModel.refreshEnvironmentPanel`
+used: one failing environment doesn't blank the others).
+
+### Frontend (`web/`)
+
+- **`api.ts`** is the single fetch-wrapper module — every component
+  imports typed request functions from here rather than calling
+  `fetch` directly. Grows one function per backend route; don't create
+  a second parallel API-calling convention.
+- **Collection tree** (`CollectionTree.tsx`): the collection itself is
+  a collapsible root node (starts collapsed, chevron to expand) with
+  its folder/request tree nested one level deeper — not a static
+  heading above the tree. `collectNodeIds(parentId, nodes)` is the
+  single source of truth for position-based node ids
+  (`collectionUid`, `collectionUid/0`, `collectionUid/0/1`, ...),
+  used both to seed the default-collapsed set and to toggle nodes —
+  avoiding the two-call-site drift the old `AppViewModel.collectFolderIds`
+  vs `TabbedListPanel.flatten` split risked. Indentation for a node at
+  `depth` is `(depth + 1) * 2` (in MUI spacing units) specifically so a
+  depth-1 folder/item visibly indents past the collection row's own
+  default padding — using plain `depth * 2` makes depth-1 rows land at
+  the same horizontal position as the collection row above them.
+- **Left panel legend**: both the Collections and Environments tabs
+  render inside one shared bordered `<fieldset>`/`<legend>` in `App.tsx`,
+  with the legend text switching on `activeTab` — don't duplicate the
+  fieldset per tab, just swap the legend string and inner content.
+- **Right panel (`DetailPanel.tsx`)** dispatches on a `DetailContent`
+  discriminated union (`none`/`loading`/`collectionVariables`/
+  `environments`), mirroring the old Lanterna `DetailContent` sealed
+  class. Both the collection-variables view and the environment
+  key/value grid render inside their own bordered `<fieldset>` — legend
+  is `"Variables"` for collection variables, and the comma-joined shown
+  environment name(s) (e.g. `"Staging"` or `"Staging, Production"`) for
+  the environment grid, so the compare case is self-labeling without a
+  separate "Compare" concept.
+- **Add/delete key row is a fan-out**: editing a key across the
+  currently-shown environment set calls `updateEnvironment` once per
+  shown environment (`Promise.all` in `App.tsx`'s `handleAddKey`/
+  `handleDeleteKey`) — a single-environment view is just the N=1 case.
+  No rollback-on-partial-failure (unlike the old TUI's
+  `AppViewModel.fanOutKeyUpdate`) — a failed fan-out call surfaces via
+  `statusMessage`, per the "preserve last-known-good data on failure"
+  principle, not a hard requirement to re-add.
+- **Tab switching clears the right panel**: `App.tsx` resets
+  `detailContent` to `{ kind: 'none' }` and clears
+  `highlightedEnvironmentId`/`markedEnvironmentIds` in a `useEffect`
+  keyed on `activeTab` — without this, switching from Environments back
+  to Collections (or vice versa) leaves stale content in the detail
+  panel until a new selection is made.
+- **No server-side session/UI state** — collapsed-tree-ids,
+  highlighted/marked environment ids all live in React component state.
+  This was a deliberate scope decision (see the migration spec) so a
+  future chat feature's context-passing needs don't get guessed at
+  before that feature is speced.
+
+### Toolchain gotchas discovered building this
+
+- **MUI needs an explicit `ThemeProvider` + `CssBaseline`.** The Vite
+  React-TS scaffold's `index.css` sets a dark background under
+  `prefers-color-scheme: dark`; MUI defaults to its light theme (dark
+  text) when no theme is provided. Without wiring up a theme that
+  tracks the system color scheme (`main.tsx`'s `useMediaQuery('(prefers-color-scheme: dark)')`
+  + `createTheme({ palette: { mode } })`), text renders at near-zero
+  contrast in dark mode. `index.css` was stripped down to a minimal
+  reset for the same reason — the scaffold's landing-page CSS
+  (`#root` width/centering, custom CSS vars) fights MUI's own layout
+  assumptions.
+- **`verbatimModuleSyntax` (on by default in the Vite React-TS
+  template's `tsconfig`) requires type-only imports for types**, even
+  mixed with value imports from the same module — `import { Foo, type Bar } from 'x'`
+  or a separate `import type { Bar } from 'x'` line, not a bare
+  `import { Foo, Bar } from 'x'` where `Bar` is a type. Forgetting this
+  fails `tsc -b` (not `vitest`, which doesn't type-check) — always run
+  `npx tsc -b --noEmit` after adding new type imports, not just the
+  test suite.
+- **`vite.config.ts` must import `defineConfig` from `'vitest/config'`**,
+  not `'vite'`, once a `test: {...}` block is added — the plain `vite`
+  export's config type doesn't know about the `test` key and `tsc -b`
+  rejects it.
+- **The dev proxy** (`vite.config.ts`'s `server.proxy['/api']`) is what
+  lets the Vite dev server on its own port talk to the Ktor server on
+  `:8080` without CORS — if `/api` calls 502 with an *empty* body (not
+  a JSON `{"error": ...}` one), that's Vite's proxy failing to reach
+  the backend at all (backend not running, or started via `./gradlew run`
+  instead of `./gradlew runServer` and therefore still the old TUI, if
+  it still exists at all), not a route-level failure.
 
 ## API integration notes
 
 Response shapes were verified against Postman's real API during
-development, not guessed — treat these as load-bearing:
+development, not guessed — treat these as load-bearing (unchanged by
+the REST migration; `PostmanApiServiceImpl` is what actually calls
+these):
 
 - `GET /workspaces` → `{"workspaces": [{"id","name","type"}]}`
 - `GET /workspaces/{id}` → `{"workspace": {..., "collections": [{"id","name","uid"}]}}`
