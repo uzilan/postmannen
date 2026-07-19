@@ -17,7 +17,6 @@ kotlin {
 }
 
 dependencies {
-    implementation("com.googlecode.lanterna:lanterna:3.1.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
@@ -36,7 +35,7 @@ dependencies {
 }
 
 application {
-    mainClass.set("postmannen.MainKt")
+    mainClass.set("postmannen.server.ServerMainKt")
 }
 
 tasks.shadowJar {
@@ -44,14 +43,8 @@ tasks.shadowJar {
     archiveBaseName.set("postmannen")
     archiveVersion.set("")
     manifest {
-        attributes["Main-Class"] = "postmannen.MainKt"
+        attributes["Main-Class"] = "postmannen.server.ServerMainKt"
     }
-}
-
-tasks.register<JavaExec>("runServer") {
-    group = "application"
-    mainClass.set("postmannen.server.ServerMainKt")
-    classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.test {
