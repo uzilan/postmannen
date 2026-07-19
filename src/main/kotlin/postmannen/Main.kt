@@ -24,6 +24,8 @@ fun main() = runBlocking {
     }
 
     val terminal = DefaultTerminalFactory().createTerminal()
+    (terminal as? com.googlecode.lanterna.terminal.ExtendedTerminal)
+        ?.setMouseCaptureMode(com.googlecode.lanterna.terminal.MouseCaptureMode.CLICK_RELEASE_DRAG)
     val screen = TerminalScreen(terminal)
     screen.startScreen()
     val gui = MultiWindowTextGUI(screen)
