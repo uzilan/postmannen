@@ -272,13 +272,23 @@ export default function App() {
           </Box>
         </Box>
         <Box sx={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-          <DetailPanel
-            content={detailContent}
-            onValueChange={handleValueChange}
-            onEnabledToggle={handleEnabledToggle}
-            onAddKey={handleAddKey}
-            onDeleteKey={handleDeleteKey}
-          />
+          <Box
+            component="fieldset"
+            sx={{ borderColor: 'divider', borderRadius: 1, m: 1, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+          >
+            <Box component="legend" sx={{ px: 1 }}>
+              {detailContentLabel(detailContent) ?? 'Details'}
+            </Box>
+            <Box sx={{ overflow: 'auto', flex: 1 }}>
+              <DetailPanel
+                content={detailContent}
+                onValueChange={handleValueChange}
+                onEnabledToggle={handleEnabledToggle}
+                onAddKey={handleAddKey}
+                onDeleteKey={handleDeleteKey}
+              />
+            </Box>
+          </Box>
         </Box>
         <Box sx={{ width: '30%', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <Box

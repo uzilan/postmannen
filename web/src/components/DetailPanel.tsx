@@ -1,4 +1,4 @@
-import { Box, Button, IconButton, Table, TableBody, TableCell, TableHead, TableRow, Checkbox, TextField, Typography } from '@mui/material'
+import { Button, IconButton, Table, TableBody, TableCell, TableHead, TableRow, Checkbox, TextField, Typography } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { useState } from 'react'
 import type { CollectionVariable, EnvironmentDetail } from '../api'
@@ -30,81 +30,63 @@ export function DetailPanel(props: {
 
   if (content.kind === 'collectionVariables') {
     return (
-      <Box
-        component="fieldset"
-        sx={{ borderColor: 'divider', borderRadius: 1, m: 1, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-      >
-        <Box component="legend" sx={{ px: 1 }}>
-          {detailContentLabel(content)}
-        </Box>
-        <Box sx={{ overflow: 'auto', flex: 1 }}>
-          <Table>
-            <TableBody>
-              {content.variables.map((v) => (
-                <TableRow key={v.key}>
-                  <TableCell>{v.key}</TableCell>
-                  <TableCell>{v.value}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Box>
-      </Box>
+      <Table>
+        <TableBody>
+          {content.variables.map((v) => (
+            <TableRow key={v.key}>
+              <TableCell>{v.key}</TableCell>
+              <TableCell>{v.value}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     )
   }
 
   const keys = Array.from(new Set(content.details.flatMap((d) => d.values.map((v) => v.key))))
 
   return (
-    <Box
-      component="fieldset"
-      sx={{ borderColor: 'divider', borderRadius: 1, m: 1, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-    >
-      <Box component="legend" sx={{ px: 1 }}>
-        {detailContentLabel(content)}
-      </Box>
-      <Box sx={{ overflow: 'auto', flex: 1 }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Key</TableCell>
-              {content.details.map((d) => (
-                <TableCell key={d.uid}>{d.name}</TableCell>
-              ))}
-              <TableCell />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {keys.map((key) => (
-              <TableRow key={key}>
-                <TableCell>{key}</TableCell>
-                {content.details.map((d) => {
-                  const cell = d.values.find((v) => v.key === key)
-                  return (
-                    <TableCell key={d.uid}>
-                      <Checkbox
-                        checked={cell?.enabled ?? false}
-                        onChange={() => onEnabledToggle(d.uid, key)}
-                        size="small"
-                      />
-                      <TextField
-                        variant="standard"
-                        defaultValue={cell?.value ?? ''}
-                        onBlur={(e) => onValueChange(d.uid, key, e.target.value)}
-                      />
-                    </TableCell>
-                  )
-                })}
-                <TableCell>
-                  <IconButton aria-label={`delete row ${key}`} onClick={() => onDeleteKey(key)} size="small">
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
+    <>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>Key</TableCell>
+            {content.details.map((d) => (
+              <TableCell key={d.uid}>{d.name}</TableCell>
             ))}
-          </TableBody>
-        </Table>
-      </Box>
+            <TableCell />
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {keys.map((key) => (
+            <TableRow key={key}>
+              <TableCell>{key}</TableCell>
+              {content.details.map((d) => {
+                const cell = d.values.find((v) => v.key === key)
+                return (
+                  <TableCell key={d.uid}>
+                    <Checkbox
+                      checked={cell?.enabled ?? false}
+                      onChange={() => onEnabledToggle(d.uid, key)}
+                      size="small"
+                    />
+                    <TextField
+                      variant="standard"
+                      defaultValue={cell?.value ?? ''}
+                      onBlur={(e) => onValueChange(d.uid, key, e.target.value)}
+                    />
+                  </TableCell>
+                )
+              })}
+              <TableCell>
+                <IconButton aria-label={`delete row ${key}`} onClick={() => onDeleteKey(key)} size="small">
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
       <TextField
         size="small"
         placeholder="new key"
@@ -120,6 +102,6 @@ export function DetailPanel(props: {
       >
         Add key
       </Button>
-    </Box>
+    </>
   )
 }
