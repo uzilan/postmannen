@@ -42,3 +42,13 @@ export async function getEnvironments(workspaceId: string): Promise<Environment[
   if (!response.ok) throw new Error(`getEnvironments failed: ${response.status}`)
   return response.json()
 }
+
+export type EnvironmentValue = { key: string; value: string; enabled: boolean; type: string }
+
+export type EnvironmentDetail = { id: string; uid: string; name: string; values: EnvironmentValue[] }
+
+export async function getEnvironmentDetail(uid: string): Promise<EnvironmentDetail> {
+  const response = await fetch(`${BASE_URL}/environments/${uid}`)
+  if (!response.ok) throw new Error(`getEnvironmentDetail failed: ${response.status}`)
+  return response.json()
+}
