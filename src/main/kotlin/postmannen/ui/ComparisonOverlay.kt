@@ -101,13 +101,6 @@ class ComparisonOverlay(
             }
         }
 
-        panel.addComponent(Label(""))
-        val footer = Label("[esc] close")
-        footer.layoutData = GridLayout.createLayoutData(
-            GridLayout.Alignment.BEGINNING, GridLayout.Alignment.CENTER, false, false, columns - 1, 1
-        )
-        panel.addComponent(footer)
-
         addWindowListener(object : WindowListenerAdapter() {
             override fun onUnhandledInput(basePane: Window, key: KeyStroke, hasBeenHandled: AtomicBoolean) {
                 if (key.keyType == KeyType.Escape) {
