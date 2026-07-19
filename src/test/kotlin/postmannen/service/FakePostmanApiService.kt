@@ -1,6 +1,8 @@
 package postmannen.service
 
 import postmannen.model.Collection
+import postmannen.model.CollectionDetail
+import postmannen.model.CollectionNode
 import postmannen.model.Environment
 import postmannen.model.EnvironmentDetail
 import postmannen.model.EnvironmentValue
@@ -13,6 +15,10 @@ class FakePostmanApiService : PostmanApiService {
     var environmentDetailResults: Map<String, Result<EnvironmentDetail>> = mapOf(
         "env-1-uid" to Result.success(FIXTURE_ENVIRONMENT_DETAIL_STAGING),
         "env-2-uid" to Result.success(FIXTURE_ENVIRONMENT_DETAIL_PRODUCTION)
+    )
+    var collectionDetailResults: Map<String, Result<CollectionDetail>> = mapOf(
+        "col-1-uid" to Result.success(FIXTURE_COLLECTION_DETAIL_AUTH),
+        "col-2-uid" to Result.success(FIXTURE_COLLECTION_DETAIL_BILLING)
     )
     var updateEnvironmentResult: Result<Unit> = Result.success(Unit)
     var updateEnvironmentHandler: ((EnvironmentDetail) -> Result<Unit>)? = null
@@ -28,6 +34,10 @@ class FakePostmanApiService : PostmanApiService {
         lastRequestedWorkspaceId = workspaceId
         return collectionsResult
     }
+
+    override suspend fun getCollectionDetail(collectionUid: String): Result<CollectionDetail> =
+        collectionDetailResults[collectionUid]
+            ?: Result.failure(IllegalStateException("no fixture registered for uid $collectionUid"))
 
     override suspend fun getEnvironments(workspaceId: String): Result<List<Environment>> {
         lastRequestedWorkspaceId = workspaceId
@@ -55,8 +65,24 @@ class FakePostmanApiService : PostmanApiService {
             Workspace(id = "ws-2", name = "Personal", type = "personal")
         )
         val FIXTURE_COLLECTIONS = listOf(
-            Collection(id = "col-1", name = "Auth API"),
-            Collection(id = "col-2", name = "Billing API")
+            Collection(id = "col-1", name = "Auth API", uid = "col-1-uid"),
+            Collection(id = "col-2", name = "Billing API", uid = "col-2-uid")
+        )
+        val FIXTURE_COLLECTION_DETAIL_AUTH = CollectionDetail(
+            uid = "col-1-uid",
+            name = "Auth API",
+            items = listOf(
+                CollectionNode.Folder(
+                    "Users",
+                    listOf(CollectionNode.RequestItem("Login"), CollectionNode.RequestItem("Signup"))
+                ),
+                CollectionNode.RequestItem("Health Check")
+            )
+        )
+        val FIXTURE_COLLECTION_DETAIL_BILLING = CollectionDetail(
+            uid = "col-2-uid",
+            name = "Billing API",
+            items = listOf(CollectionNode.RequestItem("List Invoices"))
         )
         val FIXTURE_ENVIRONMENTS = listOf(
             Environment(id = "env-1", name = "Staging", uid = "env-1-uid"),

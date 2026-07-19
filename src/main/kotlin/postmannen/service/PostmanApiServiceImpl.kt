@@ -17,6 +17,8 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import postmannen.model.Collection
+import postmannen.model.CollectionDetail
+import postmannen.model.CollectionNode
 import postmannen.model.Environment
 import postmannen.model.EnvironmentDetail
 import postmannen.model.EnvironmentValue
@@ -43,7 +45,17 @@ class PostmanApiServiceImpl(private val apiKey: String) : PostmanApiService {
     override suspend fun getCollections(workspaceId: String): Result<List<Collection>> = runCatching {
         val response: WorkspaceDetailResponse =
             client.get { url { appendPathSegments("workspaces", workspaceId) } }.body()
-        response.workspace.collections.map { Collection(id = it.id, name = it.name) }
+        response.workspace.collections.map { Collection(id = it.id, name = it.name, uid = it.uid) }
+    }
+
+    override suspend fun getCollectionDetail(collectionUid: String): Result<CollectionDetail> = runCatching {
+        val response: CollectionDetailResponse =
+            client.get { url { appendPathSegments("collections", collectionUid) } }.body()
+        CollectionDetail(
+            uid = collectionUid,
+            name = response.collection.info.name,
+            items = response.collection.item.map { it.toNode() }
+        )
     }
 
     override suspend fun getEnvironments(workspaceId: String): Result<List<Environment>> = runCatching {
@@ -148,3 +160,19 @@ private data class EnvironmentCreateResponse(val environment: EnvironmentCreateR
 
 @Serializable
 private data class EnvironmentCreateResponseDto(val id: String, val name: String, val uid: String)
+
+@Serializable
+private data class CollectionDetailResponse(val collection: CollectionDetailDto)
+
+@Serializable
+private data class CollectionDetailDto(val info: CollectionInfoDto, val item: List<CollectionItemDto> = emptyList())
+
+@Serializable
+private data class CollectionInfoDto(val name: String)
+
+@Serializable
+private data class CollectionItemDto(val name: String, val item: List<CollectionItemDto>? = null)
+
+private fun CollectionItemDto.toNode(): CollectionNode =
+    if (item != null) CollectionNode.Folder(name, item.map { it.toNode() })
+    else CollectionNode.RequestItem(name)
