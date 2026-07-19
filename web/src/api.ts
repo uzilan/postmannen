@@ -15,6 +15,12 @@ export type CollectionDetail = {
   variables: CollectionVariable[]
 }
 
+export type Environment = { id: string; name: string; uid: string }
+
+export type EnvironmentValue = { key: string; value: string; enabled: boolean; type: string }
+
+export type EnvironmentDetail = { id: string; uid: string; name: string; values: EnvironmentValue[] }
+
 const BASE_URL = '/api'
 
 export async function getWorkspaces(): Promise<Workspace[]> {
@@ -35,20 +41,33 @@ export async function getCollectionDetail(uid: string): Promise<CollectionDetail
   return response.json()
 }
 
-export type Environment = { id: string; name: string; uid: string }
-
 export async function getEnvironments(workspaceId: string): Promise<Environment[]> {
   const response = await fetch(`${BASE_URL}/environments?workspaceId=${workspaceId}`)
   if (!response.ok) throw new Error(`getEnvironments failed: ${response.status}`)
   return response.json()
 }
 
-export type EnvironmentValue = { key: string; value: string; enabled: boolean; type: string }
-
-export type EnvironmentDetail = { id: string; uid: string; name: string; values: EnvironmentValue[] }
-
 export async function getEnvironmentDetail(uid: string): Promise<EnvironmentDetail> {
   const response = await fetch(`${BASE_URL}/environments/${uid}`)
   if (!response.ok) throw new Error(`getEnvironmentDetail failed: ${response.status}`)
+  return response.json()
+}
+
+export async function updateEnvironment(uid: string, detail: EnvironmentDetail): Promise<void> {
+  const response = await fetch(`${BASE_URL}/environments/${uid}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(detail),
+  })
+  if (!response.ok) throw new Error(`updateEnvironment failed: ${response.status}`)
+}
+
+export async function createEnvironment(workspaceId: string, name: string): Promise<Environment> {
+  const response = await fetch(`${BASE_URL}/environments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ workspaceId, name }),
+  })
+  if (!response.ok) throw new Error(`createEnvironment failed: ${response.status}`)
   return response.json()
 }
