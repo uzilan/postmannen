@@ -51,7 +51,15 @@ class AppViewModel(
 
     fun selectWorkspace(index: Int) {
         val workspace = _state.value.workspaces.getOrNull(index) ?: return
-        update { copy(selectedWorkspaceIndex = index, selectedEnvironmentIds = emptySet()) }
+        update {
+            copy(
+                selectedWorkspaceIndex = index,
+                selectedEnvironmentIds = emptySet(),
+                collections = emptyList(),
+                collectionDetails = emptyList(),
+                environments = emptyList()
+            )
+        }
         loadCollections(workspace.id)
         loadEnvironments(workspace.id)
     }
