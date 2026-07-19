@@ -16,7 +16,7 @@ import postmannen.model.Collection
 import postmannen.model.Environment
 import postmannen.model.Tab
 
-class ItemListPanel : Panel(LinearLayout(Direction.VERTICAL)) {
+class TabbedListPanel : Panel(LinearLayout(Direction.VERTICAL)) {
     private val tabBar = Label("")
 
     @Volatile var onSpaceKey: (() -> Unit)? = null

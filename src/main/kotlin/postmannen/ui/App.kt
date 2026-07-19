@@ -28,7 +28,7 @@ class App(
     private val scope: CoroutineScope
 ) {
     private val workspaceDropdown = WorkspaceDropdown()
-    private val itemListPanel = ItemListPanel()
+    private val tabbedListPanel = TabbedListPanel()
     private val statusBar = StatusBar()
     private val hintLabel = Label("")
     private val window = BasicWindow("postmannen")
@@ -39,7 +39,7 @@ class App(
 
         val root = Panel(BorderLayout())
         root.addComponent(workspaceDropdown, BorderLayout.Location.TOP)
-        root.addComponent(itemListPanel.withBorder(Borders.singleLine()), BorderLayout.Location.CENTER)
+        root.addComponent(tabbedListPanel.withBorder(Borders.singleLine()), BorderLayout.Location.CENTER)
 
         val bottomPanel = Panel(LinearLayout(Direction.VERTICAL))
         bottomPanel.addComponent(statusBar)
@@ -55,10 +55,10 @@ class App(
             }
         }
 
-        itemListPanel.onSpaceKey = {
+        tabbedListPanel.onSpaceKey = {
             val state = viewModel.state.value
             if (state.activeTab == Tab.ENVIRONMENTS) {
-                state.environments.getOrNull(itemListPanel.selectedIndex)?.let {
+                state.environments.getOrNull(tabbedListPanel.selectedIndex)?.let {
                     viewModel.toggleEnvironmentSelection(it.id)
                 }
             }
@@ -110,7 +110,7 @@ class App(
             workspaceDropdown.selectedIndex = state.selectedWorkspaceIndex.coerceIn(0, state.workspaces.size - 1)
         }
 
-        itemListPanel.applyState(state)
+        tabbedListPanel.applyState(state)
 
         hintLabel.text = when {
             state.comparisonVisible -> "  [esc] close"
