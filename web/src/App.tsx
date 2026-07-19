@@ -8,6 +8,7 @@ import {
   getEnvironments,
   getWorkspaces,
   isWriteTool,
+  refreshWorkspace,
   sendChatMessage,
   updateEnvironment,
 } from './api'
@@ -209,6 +210,10 @@ export default function App() {
       ])
       setChatSessionId(response.sessionId)
       if (!response.errored && response.toolsUsed.some(isWriteTool) && selectedWorkspaceId) {
+        // The chat's MCP tools call Postman's API directly, bypassing our own
+        // CachingPostmanApiService — so a plain refetch would just return our
+        // stale cache. Invalidate it server-side first.
+        await refreshWorkspace(selectedWorkspaceId)
         loadWorkspaceData(selectedWorkspaceId)
       }
     } catch (e) {
