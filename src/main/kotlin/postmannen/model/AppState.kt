@@ -4,6 +4,8 @@ data class AppState(
     val workspaces: List<Workspace> = emptyList(),
     val selectedWorkspaceIndex: Int = 0,
     val collections: List<Collection> = emptyList(),
+    val collectionDetails: List<CollectionDetail> = emptyList(),
+    val collapsedNodeIds: Set<String> = emptySet(),
     val environments: List<Environment> = emptyList(),
     val activeTab: Tab = Tab.COLLECTIONS,
     val selectedEnvironmentIds: Set<String> = emptySet(),

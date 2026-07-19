@@ -90,6 +90,47 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `loadWorkspaces also fetches each collection's full tree and seeds collapsedNodeIds`() = runTest {
+        val vm = AppViewModel(FakePostmanApiService(), this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        assertEquals(
+            listOf(
+                FakePostmanApiService.FIXTURE_COLLECTION_DETAIL_AUTH,
+                FakePostmanApiService.FIXTURE_COLLECTION_DETAIL_BILLING
+            ),
+            vm.state.value.collectionDetails
+        )
+        assertEquals(setOf("col-1-uid", "col-2-uid"), vm.state.value.collapsedNodeIds)
+    }
+
+    @Test
+    fun `loadCollections tree fetch failure for one collection is skipped but others still populate`() = runTest {
+        val fake = FakePostmanApiService()
+        fake.collectionDetailResults = mapOf(
+            "col-1-uid" to Result.failure(RuntimeException("boom")),
+            "col-2-uid" to Result.success(FakePostmanApiService.FIXTURE_COLLECTION_DETAIL_BILLING)
+        )
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        assertEquals(listOf(FakePostmanApiService.FIXTURE_COLLECTION_DETAIL_BILLING), vm.state.value.collectionDetails)
+        assertTrue(vm.state.value.statusMessage.contains("Auth API"))
+    }
+
+    @Test
+    fun `toggleNodeCollapsed adds then removes a node id`() = runTest {
+        val vm = AppViewModel(FakePostmanApiService(), this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        assertTrue("col-1-uid" in vm.state.value.collapsedNodeIds)
+        vm.toggleNodeCollapsed("col-1-uid")
+        assertFalse("col-1-uid" in vm.state.value.collapsedNodeIds)
+        vm.toggleNodeCollapsed("col-1-uid")
+        assertTrue("col-1-uid" in vm.state.value.collapsedNodeIds)
+    }
+
+    @Test
     fun `loadWorkspaces also loads environments for the first workspace`() = runTest {
         val fake = FakePostmanApiService()
         val vm = AppViewModel(fake, this)

@@ -60,7 +60,26 @@ class AppViewModel(
             update { copy(loading = true) }
             service.getCollections(workspaceId)
                 .onSuccess { collections ->
-                    update { copy(collections = collections, loading = false) }
+                    update {
+                        copy(
+                            collections = collections,
+                            loading = false,
+                            collapsedNodeIds = collections.map { it.uid }.toSet()
+                        )
+                    }
+                    scope.launch {
+                        val results = collections.map { c -> c.uid to scope.async { service.getCollectionDetail(c.uid) } }
+                            .map { (uid, deferred) -> uid to deferred.await() }
+                        val details = results.mapNotNull { (_, result) -> result.getOrNull() }
+                        val failedNames = results.filter { (_, result) -> result.isFailure }
+                            .mapNotNull { (uid, _) -> collections.firstOrNull { it.uid == uid }?.name }
+                        update {
+                            copy(
+                                collectionDetails = details,
+                                statusMessage = if (failedNames.isNotEmpty()) "Error loading tree for: ${failedNames.joinToString(", ")}" else statusMessage
+                            )
+                        }
+                    }
                 }
                 .onFailure { e ->
                     update { copy(loading = false, statusMessage = "Error: ${e.message}") }
@@ -88,6 +107,13 @@ class AppViewModel(
             service.createEnvironment(workspace.id, name)
                 .onSuccess { env -> update { copy(environments = environments + env) } }
                 .onFailure { e -> update { copy(statusMessage = "Error: ${e.message}") } }
+        }
+    }
+
+    fun toggleNodeCollapsed(nodeId: String) {
+        update {
+            val newSet = if (nodeId in collapsedNodeIds) collapsedNodeIds - nodeId else collapsedNodeIds + nodeId
+            copy(collapsedNodeIds = newSet)
         }
     }
 
