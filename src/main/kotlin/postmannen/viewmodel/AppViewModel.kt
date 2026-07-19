@@ -125,7 +125,22 @@ class AppViewModel(
         scope.launch {
             service.updateEnvironment(updatedDetail)
                 .onSuccess {
-                    update { copy(comparisonDetails = comparisonDetails.map { if (it.uid == environmentUid) updatedDetail else it }) }
+                    // Merge into whatever comparisonDetails is *now*, not the snapshot taken
+                    // before this PUT started — a concurrent edit to a different key in the
+                    // same environment may have already landed, and overwriting wholesale
+                    // from a stale snapshot would silently revert it.
+                    update {
+                        copy(comparisonDetails = comparisonDetails.map { detail ->
+                            if (detail.uid != environmentUid) return@map detail
+                            val idx = detail.values.indexOfFirst { it.key == key }
+                            val mergedValues = if (idx >= 0) {
+                                detail.values.toMutableList().also { it[idx] = it[idx].copy(value = newValue) }
+                            } else {
+                                detail.values + EnvironmentValue(key = key, value = newValue, enabled = true, type = "default")
+                            }
+                            detail.copy(values = mergedValues)
+                        })
+                    }
                 }
                 .onFailure { e ->
                     update { copy(statusMessage = "Error: ${e.message}") }
@@ -137,14 +152,22 @@ class AppViewModel(
         val current = _state.value.comparisonDetails.find { it.uid == environmentUid } ?: return
         val existingIndex = current.values.indexOfFirst { it.key == key }
         if (existingIndex < 0) return
-        val newValues = current.values.toMutableList().also {
-            it[existingIndex] = it[existingIndex].copy(enabled = !it[existingIndex].enabled)
-        }
+        val newEnabled = !current.values[existingIndex].enabled
+        val newValues = current.values.toMutableList().also { it[existingIndex] = it[existingIndex].copy(enabled = newEnabled) }
         val updatedDetail = current.copy(values = newValues)
         scope.launch {
             service.updateEnvironment(updatedDetail)
                 .onSuccess {
-                    update { copy(comparisonDetails = comparisonDetails.map { if (it.uid == environmentUid) updatedDetail else it }) }
+                    // Same merge-not-replace reasoning as updateEnvironmentValue above.
+                    update {
+                        copy(comparisonDetails = comparisonDetails.map { detail ->
+                            if (detail.uid != environmentUid) return@map detail
+                            val idx = detail.values.indexOfFirst { it.key == key }
+                            if (idx < 0) return@map detail
+                            val mergedValues = detail.values.toMutableList().also { it[idx] = it[idx].copy(enabled = newEnabled) }
+                            detail.copy(values = mergedValues)
+                        })
+                    }
                 }
                 .onFailure { e ->
                     update { copy(statusMessage = "Error: ${e.message}") }

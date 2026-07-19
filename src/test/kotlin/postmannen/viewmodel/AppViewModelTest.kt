@@ -328,4 +328,22 @@ class AppViewModelTest {
         assertEquals(before, vm.state.value.comparisonDetails)
         assertTrue(vm.state.value.statusMessage.contains("toggle failed"))
     }
+
+    @Test
+    fun `concurrent edits to different keys in the same environment do not clobber each other`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        vm.toggleEnvironmentSelection("env-1")
+        vm.toggleEnvironmentSelection("env-2")
+        vm.openComparison()
+        advanceUntilIdle()
+        vm.updateEnvironmentValue("env-1-uid", "BASE_URL", "https://a.example.com")
+        vm.updateEnvironmentValue("env-1-uid", "API_KEY", "new_key")
+        advanceUntilIdle()
+        val updated = vm.state.value.comparisonDetails.first { it.uid == "env-1-uid" }
+        assertEquals("https://a.example.com", updated.values.first { it.key == "BASE_URL" }.value)
+        assertEquals("new_key", updated.values.first { it.key == "API_KEY" }.value)
+    }
 }
