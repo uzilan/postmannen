@@ -469,4 +469,102 @@ class AppViewModelTest {
         assertTrue(staging.values.any { it.key == "NEW_BASE_URL" })
         assertEquals("changed_key_value", staging.values.first { it.key == "API_KEY" }.value)
     }
+
+    @Test
+    fun `deleteEnvironmentKey removes the key from every environment that has it`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        vm.toggleEnvironmentSelection("env-1")
+        vm.toggleEnvironmentSelection("env-2")
+        vm.openComparison()
+        advanceUntilIdle()
+        vm.deleteEnvironmentKey("BASE_URL")
+        advanceUntilIdle()
+        val staging = vm.state.value.comparisonDetails.first { it.uid == "env-1-uid" }
+        val production = vm.state.value.comparisonDetails.first { it.uid == "env-2-uid" }
+        assertTrue(staging.values.none { it.key == "BASE_URL" })
+        assertTrue(production.values.none { it.key == "BASE_URL" })
+    }
+
+    @Test
+    fun `deleteEnvironmentKey is a no-op when the key doesn't exist anywhere`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        vm.toggleEnvironmentSelection("env-1")
+        vm.toggleEnvironmentSelection("env-2")
+        vm.openComparison()
+        advanceUntilIdle()
+        val before = vm.state.value.comparisonDetails
+        vm.deleteEnvironmentKey("NOT_A_REAL_KEY")
+        advanceUntilIdle()
+        assertEquals(before, vm.state.value.comparisonDetails)
+        assertEquals(null, fake.lastUpdatedEnvironmentDetail)
+    }
+
+    @Test
+    fun `deleteEnvironmentKey rolls back the succeeded environment when another fails`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        vm.toggleEnvironmentSelection("env-1")
+        vm.toggleEnvironmentSelection("env-2")
+        vm.openComparison()
+        advanceUntilIdle()
+        val before = vm.state.value.comparisonDetails
+        fake.updateEnvironmentHandler = { detail ->
+            if (detail.uid == "env-2-uid") Result.failure(RuntimeException("boom")) else Result.success(Unit)
+        }
+        vm.deleteEnvironmentKey("BASE_URL")
+        advanceUntilIdle()
+        assertEquals(before, vm.state.value.comparisonDetails)
+        assertTrue(vm.state.value.statusMessage.contains("boom"))
+    }
+
+    @Test
+    fun `deleteEnvironmentKey surfaces a distinct message when rollback also fails`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        vm.toggleEnvironmentSelection("env-1")
+        vm.toggleEnvironmentSelection("env-2")
+        vm.openComparison()
+        advanceUntilIdle()
+        val callCounts = mutableMapOf<String, Int>()
+        fake.updateEnvironmentHandler = { detail ->
+            val count = (callCounts[detail.uid] ?: 0) + 1
+            callCounts[detail.uid] = count
+            when {
+                detail.uid == "env-2-uid" -> Result.failure(RuntimeException("delete failed"))
+                detail.uid == "env-1-uid" && count == 1 -> Result.success(Unit)
+                else -> Result.failure(RuntimeException("rollback failed too"))
+            }
+        }
+        vm.deleteEnvironmentKey("BASE_URL")
+        advanceUntilIdle()
+        assertTrue(vm.state.value.statusMessage.contains("Postman"))
+    }
+
+    @Test
+    fun `deleteEnvironmentKey and updateEnvironmentValue for different keys do not clobber each other`() = runTest {
+        val fake = FakePostmanApiService()
+        val vm = AppViewModel(fake, this)
+        vm.loadWorkspaces()
+        advanceUntilIdle()
+        vm.toggleEnvironmentSelection("env-1")
+        vm.toggleEnvironmentSelection("env-2")
+        vm.openComparison()
+        advanceUntilIdle()
+        vm.deleteEnvironmentKey("BASE_URL")
+        vm.updateEnvironmentValue("env-1-uid", "API_KEY", "changed_key_value")
+        advanceUntilIdle()
+        val staging = vm.state.value.comparisonDetails.first { it.uid == "env-1-uid" }
+        assertTrue(staging.values.none { it.key == "BASE_URL" })
+        assertEquals("changed_key_value", staging.values.first { it.key == "API_KEY" }.value)
+    }
 }

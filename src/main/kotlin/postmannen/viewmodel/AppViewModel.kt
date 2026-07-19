@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import postmannen.model.AppState
+import postmannen.model.EnvironmentDetail
 import postmannen.model.EnvironmentValue
 import postmannen.model.Tab
 import postmannen.service.PostmanApiService
@@ -186,28 +187,60 @@ class AppViewModel(
             return
         }
 
-        val renamedDetails = affected.map { detail ->
-            val idx = detail.values.indexOfFirst { it.key == oldKey }
-            detail to detail.copy(values = detail.values.toMutableList().also { it[idx] = it[idx].copy(key = newKey) })
-        }
+        fanOutKeyUpdate(
+            key = oldKey,
+            operationName = "rename",
+            buildUpdatedDetail = { detail ->
+                val idx = detail.values.indexOfFirst { it.key == oldKey }
+                detail.copy(values = detail.values.toMutableList().also { it[idx] = it[idx].copy(key = newKey) })
+            },
+            mergeIntoCurrent = { detail ->
+                val idx = detail.values.indexOfFirst { it.key == oldKey }
+                if (idx < 0) detail else detail.copy(values = detail.values.toMutableList().also { it[idx] = it[idx].copy(key = newKey) })
+            }
+        )
+    }
+
+    fun deleteEnvironmentKey(key: String) {
+        fanOutKeyUpdate(
+            key = key,
+            operationName = "delete",
+            buildUpdatedDetail = { detail -> detail.copy(values = detail.values.filterNot { it.key == key }) },
+            mergeIntoCurrent = { detail -> detail.copy(values = detail.values.filterNot { it.key == key }) }
+        )
+    }
+
+    // Shared by renameEnvironmentKey and deleteEnvironmentKey: find every environment
+    // that currently has `key`, apply `buildUpdatedDetail` to each and PUT them all
+    // concurrently. On full success, merge each affected environment's result into
+    // whatever comparisonDetails is *now* (via mergeIntoCurrent), not a stale snapshot —
+    // same reasoning as updateEnvironmentValue/toggleEnvironmentValueEnabled above. On
+    // any failure, roll back every environment that did succeed by re-PUTting its
+    // original (untransformed) detail, and never touch comparisonDetails.
+    private fun fanOutKeyUpdate(
+        key: String,
+        operationName: String,
+        buildUpdatedDetail: (EnvironmentDetail) -> EnvironmentDetail,
+        mergeIntoCurrent: (EnvironmentDetail) -> EnvironmentDetail
+    ) {
+        val affected = _state.value.comparisonDetails.filter { detail -> detail.values.any { it.key == key } }
+        if (affected.isEmpty()) return
+
+        val transformed = affected.map { detail -> detail to buildUpdatedDetail(detail) }
 
         scope.launch {
-            val renameResults = renamedDetails
-                .map { (original, renamed) -> Triple(original, renamed, scope.async { service.updateEnvironment(renamed) }) }
-                .map { (original, renamed, deferred) -> Triple(original, renamed, deferred.await()) }
+            val results = transformed
+                .map { (original, updated) -> Triple(original, updated, scope.async { service.updateEnvironment(updated) }) }
+                .map { (original, updated, deferred) -> Triple(original, updated, deferred.await()) }
 
-            val failed = renameResults.filter { (_, _, result) -> result.isFailure }
-            val succeeded = renameResults.filter { (_, _, result) -> result.isSuccess }
+            val failed = results.filter { (_, _, result) -> result.isFailure }
+            val succeeded = results.filter { (_, _, result) -> result.isSuccess }
 
             if (failed.isEmpty()) {
                 val affectedUids = affected.map { it.uid }.toSet()
                 update {
                     copy(comparisonDetails = comparisonDetails.map { detail ->
-                        if (detail.uid !in affectedUids) return@map detail
-                        val idx = detail.values.indexOfFirst { it.key == oldKey }
-                        if (idx < 0) return@map detail
-                        val mergedValues = detail.values.toMutableList().also { it[idx] = it[idx].copy(key = newKey) }
-                        detail.copy(values = mergedValues)
+                        if (detail.uid !in affectedUids) detail else mergeIntoCurrent(detail)
                     })
                 }
                 return@launch
@@ -219,7 +252,7 @@ class AppViewModel(
 
             val firstFailureMessage = failed.first().third.exceptionOrNull()?.message
             if (rollbackResults.any { it.isFailure }) {
-                update { copy(statusMessage = "Error: rename failed and rollback also failed — verify these environments directly in Postman") }
+                update { copy(statusMessage = "Error: $operationName failed and rollback also failed — verify these environments directly in Postman") }
             } else {
                 update { copy(statusMessage = "Error: $firstFailureMessage") }
             }
