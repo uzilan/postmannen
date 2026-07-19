@@ -16,6 +16,7 @@ import com.googlecode.lanterna.screen.Screen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import postmannen.model.AppState
+import postmannen.model.Collection
 import postmannen.model.Tab
 import postmannen.model.Workspace
 import postmannen.viewmodel.AppViewModel
@@ -39,6 +40,8 @@ class App(
     private var comparisonWindow: ComparisonOverlay? = null
     private var comparisonWindowUids: Set<String> = emptySet()
     private var namePromptWindow: NamePromptOverlay? = null
+    private var focusPendingForWorkspaceIndex: Int? = null
+    private var collectionsBeforeSwitch: List<Collection> = emptyList()
 
     fun run() {
         window.setHints(setOf(Window.Hint.FULL_SCREEN, Window.Hint.NO_DECORATIONS))
@@ -61,8 +64,9 @@ class App(
         var applyingState = false
         workspaceDropdown.addListener { selectedIndex, _, changedByUserInteraction ->
             if (changedByUserInteraction && !applyingState) {
+                collectionsBeforeSwitch = viewModel.state.value.collections
                 viewModel.selectWorkspace(selectedIndex)
-                tabbedListPanel.focusList()
+                focusPendingForWorkspaceIndex = selectedIndex
             }
         }
 
@@ -182,6 +186,20 @@ class App(
 
         tabbedListPanel.applyState(state)
         refreshDetailPanel()
+
+        // Deferred from the workspace-switch dropdown listener: collections for the
+        // new workspace load asynchronously, so we can't decide "is there anything to
+        // focus" synchronously at click time. Wait until the collections list actually
+        // changes (fetch landed, success or failure) for the workspace we're waiting
+        // on, then move focus into the list only if it ended up non-empty — otherwise
+        // leave focus on the dropdown, since there's nothing useful to highlight.
+        val pendingIndex = focusPendingForWorkspaceIndex
+        if (pendingIndex != null && pendingIndex == state.selectedWorkspaceIndex && state.collections != collectionsBeforeSwitch) {
+            focusPendingForWorkspaceIndex = null
+            if (state.collections.isNotEmpty()) {
+                tabbedListPanel.focusList()
+            }
+        }
 
         hintLabel.text = when {
             state.comparisonVisible -> "  [esc] close  ^N add key  ^D delete key"
