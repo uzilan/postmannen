@@ -83,29 +83,31 @@ class ClaudeCliSessionImpl(private val postmanApiKey: String) : ClaudeCliSession
     }
 
     private fun parseLine(line: String, onEvent: (ClaudeStreamEvent) -> Unit) {
-        val json = runCatching { Json.parseToJsonElement(line).jsonObject }.getOrNull() ?: return
-        when (json["type"]?.jsonPrimitive?.content) {
-            "system" -> {
-                if (json["subtype"]?.jsonPrimitive?.content == "init") {
-                    sessionId = json["session_id"]?.jsonPrimitive?.content
-                }
-            }
-            "assistant" -> {
-                val content: JsonArray = json["message"]?.jsonObject?.get("content")?.jsonArray ?: return
-                content.forEach { block ->
-                    val obj: JsonObject = block.jsonObject
-                    when (obj["type"]?.jsonPrimitive?.content) {
-                        "text" -> onEvent(ClaudeStreamEvent.TextDelta(obj["text"]?.jsonPrimitive?.content ?: ""))
-                        "tool_use" -> onEvent(ClaudeStreamEvent.ToolUse(obj["name"]?.jsonPrimitive?.content ?: "unknown"))
+        runCatching {
+            val json = Json.parseToJsonElement(line).jsonObject
+            when (json["type"]?.jsonPrimitive?.content) {
+                "system" -> {
+                    if (json["subtype"]?.jsonPrimitive?.content == "init") {
+                        sessionId = json["session_id"]?.jsonPrimitive?.content
                     }
                 }
-            }
-            "result" -> {
-                if (json["is_error"]?.jsonPrimitive?.boolean == true) {
-                    val message = json["result"]?.jsonPrimitive?.content ?: "unknown error"
-                    onEvent(ClaudeStreamEvent.Error(message))
+                "assistant" -> {
+                    val content: JsonArray = json["message"]?.jsonObject?.get("content")?.jsonArray ?: return@runCatching
+                    content.forEach { block ->
+                        val obj: JsonObject = block.jsonObject
+                        when (obj["type"]?.jsonPrimitive?.content) {
+                            "text" -> onEvent(ClaudeStreamEvent.TextDelta(obj["text"]?.jsonPrimitive?.content ?: ""))
+                            "tool_use" -> onEvent(ClaudeStreamEvent.ToolUse(obj["name"]?.jsonPrimitive?.content ?: "unknown"))
+                        }
+                    }
                 }
-                onEvent(ClaudeStreamEvent.TurnComplete)
+                "result" -> {
+                    if (json["is_error"]?.jsonPrimitive?.boolean == true) {
+                        val message = json["result"]?.jsonPrimitive?.content ?: "unknown error"
+                        onEvent(ClaudeStreamEvent.Error(message))
+                    }
+                    onEvent(ClaudeStreamEvent.TurnComplete)
+                }
             }
         }
     }
