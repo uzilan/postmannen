@@ -24,6 +24,12 @@ class TabbedListPanel : Panel(LinearLayout(Direction.VERTICAL)) {
     @Volatile var onSpaceKey: (() -> Unit)? = null
     @Volatile var onEnterKey: (() -> Unit)? = null
 
+    // Arrow-key navigation moves Lanterna's internal selectedIndex directly,
+    // with no listener hook of its own — so anything outside this class that
+    // depends on "which row is highlighted" (the detail panel) would go stale
+    // on plain up/down movement unless notified explicitly here.
+    @Volatile var onSelectionMaybeChanged: (() -> Unit)? = null
+
     private val itemListBox = object : ActionListBox() {
         override fun handleKeyStroke(key: KeyStroke): Interactable.Result {
             if (key.keyType == KeyType.Character && key.character == ' ') {
@@ -34,7 +40,9 @@ class TabbedListPanel : Panel(LinearLayout(Direction.VERTICAL)) {
                 onEnterKey?.invoke()
                 return Interactable.Result.HANDLED
             }
-            return super.handleKeyStroke(key)
+            val result = super.handleKeyStroke(key)
+            onSelectionMaybeChanged?.invoke()
+            return result
         }
     }.apply { setListItemRenderer(itemHighlightRenderer) }
 

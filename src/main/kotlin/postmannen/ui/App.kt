@@ -79,6 +79,8 @@ class App(
             }
         }
 
+        tabbedListPanel.onSelectionMaybeChanged = { refreshDetailPanel() }
+
         window.addWindowListener(object : WindowListenerAdapter() {
             override fun onUnhandledInput(basePane: Window, keyStroke: KeyStroke, hasBeenHandled: AtomicBoolean) {
                 when {
@@ -143,6 +145,15 @@ class App(
         gui.addWindow(win)
     }
 
+    private fun refreshDetailPanel() {
+        val state = viewModel.state.value
+        val highlightedId = tabbedListPanel.selectedNodeId
+        val highlightedVariables = state.collections.firstOrNull { it.uid == highlightedId }
+            ?.let { collection -> state.collectionDetails.firstOrNull { it.uid == collection.uid }?.variables }
+            ?: emptyList()
+        detailPanel.applyVariables(highlightedVariables)
+    }
+
     private fun applyState(state: AppState) {
         if (state.workspaces != lastWorkspaces) {
             lastWorkspaces = state.workspaces
@@ -154,12 +165,7 @@ class App(
         }
 
         tabbedListPanel.applyState(state)
-
-        val highlightedId = tabbedListPanel.selectedNodeId
-        val highlightedVariables = state.collections.firstOrNull { it.uid == highlightedId }
-            ?.let { collection -> state.collectionDetails.firstOrNull { it.uid == collection.uid }?.variables }
-            ?: emptyList()
-        detailPanel.applyVariables(highlightedVariables)
+        refreshDetailPanel()
 
         hintLabel.text = when {
             state.comparisonVisible -> "  [esc] close  ^N add key  ^D delete key"
