@@ -281,7 +281,15 @@ export default function App() {
           />
         </Box>
         <Box sx={{ width: '30%', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-          <ChatPanel messages={chatMessages} sending={chatSending} onSend={handleSendChat} />
+          <Box
+            component="fieldset"
+            sx={{ borderColor: 'divider', borderRadius: 1, m: 1, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+          >
+            <Box component="legend" sx={{ px: 1 }}>
+              Chat
+            </Box>
+            <ChatPanel messages={chatMessages} sending={chatSending} onSend={handleSendChat} />
+          </Box>
         </Box>
       </Box>
       <CreateEnvironmentDialog
