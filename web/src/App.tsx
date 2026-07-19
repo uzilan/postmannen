@@ -7,17 +7,20 @@ import {
   getEnvironmentDetail,
   getEnvironments,
   getWorkspaces,
+  isWriteTool,
+  sendChatMessage,
   updateEnvironment,
 } from './api'
-import type { Collection, CollectionDetail, Environment, EnvironmentDetail, Workspace } from './api'
+import type { ChatMessage, Collection, CollectionDetail, Environment, EnvironmentDetail, Workspace } from './api'
 import { WorkspaceSelector } from './components/WorkspaceSelector'
 import { TabBar } from './components/TabBar'
 import type { AppTab } from './components/TabBar'
 import { CollectionTree } from './components/CollectionTree'
 import { EnvironmentList } from './components/EnvironmentList'
-import { DetailPanel } from './components/DetailPanel'
+import { DetailPanel, detailContentLabel } from './components/DetailPanel'
 import type { DetailContent } from './components/DetailPanel'
 import { CreateEnvironmentDialog } from './components/CreateEnvironmentDialog'
+import { ChatPanel } from './components/ChatPanel'
 
 export default function App() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
@@ -35,6 +38,10 @@ export default function App() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [chatSessionId, setChatSessionId] = useState<string | null>(null)
+  const [chatSending, setChatSending] = useState(false)
+
   useEffect(() => {
     setDetailContent({ kind: 'none' })
     setHighlightedEnvironmentId(null)
@@ -50,27 +57,34 @@ export default function App() {
       .catch((e) => setStatusMessage(`Error: ${e.message}`))
   }, [])
 
+  const loadWorkspaceData = async (workspaceId: string) => {
+    try {
+      const cols = await getCollections(workspaceId)
+      setCollections(cols)
+      const results = await Promise.all(
+        cols.map(async (c) => {
+          try {
+            return [c.uid, await getCollectionDetail(c.uid)] as const
+          } catch {
+            return null
+          }
+        })
+      )
+      setCollectionDetails(new Map(results.filter((r): r is readonly [string, CollectionDetail] => r !== null)))
+    } catch (e) {
+      setStatusMessage(`Error: ${(e as Error).message}`)
+    }
+
+    try {
+      setEnvironments(await getEnvironments(workspaceId))
+    } catch (e) {
+      setStatusMessage(`Error: ${(e as Error).message}`)
+    }
+  }
+
   useEffect(() => {
     if (!selectedWorkspaceId) return
-    getCollections(selectedWorkspaceId)
-      .then(async (cols) => {
-        setCollections(cols)
-        const results = await Promise.all(
-          cols.map(async (c) => {
-            try {
-              return [c.uid, await getCollectionDetail(c.uid)] as const
-            } catch {
-              return null
-            }
-          })
-        )
-        setCollectionDetails(new Map(results.filter((r): r is readonly [string, CollectionDetail] => r !== null)))
-      })
-      .catch((e) => setStatusMessage(`Error: ${e.message}`))
-
-    getEnvironments(selectedWorkspaceId)
-      .then(setEnvironments)
-      .catch((e) => setStatusMessage(`Error: ${e.message}`))
+    loadWorkspaceData(selectedWorkspaceId)
   }, [selectedWorkspaceId])
 
   useEffect(() => {
@@ -179,6 +193,34 @@ export default function App() {
     }
   }
 
+  const handleSendChat = async (text: string) => {
+    setChatMessages((prev) => [...prev, { role: 'user', text }])
+    setChatSending(true)
+    const workspaceName = workspaces.find((w) => w.id === selectedWorkspaceId)?.name
+    try {
+      const response = await sendChatMessage(text, chatSessionId, {
+        workspaceName,
+        workspaceId: selectedWorkspaceId ?? undefined,
+        highlightedLabel: detailContentLabel(detailContent) ?? undefined,
+      })
+      setChatMessages((prev) => [
+        ...prev,
+        { role: 'assistant', text: response.reply, toolsUsed: response.toolsUsed, errored: response.errored },
+      ])
+      setChatSessionId(response.sessionId)
+      if (!response.errored && response.toolsUsed.some(isWriteTool) && selectedWorkspaceId) {
+        loadWorkspaceData(selectedWorkspaceId)
+      }
+    } catch (e) {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: 'assistant', text: `Error: ${(e as Error).message}`, toolsUsed: [], errored: true },
+      ])
+    } finally {
+      setChatSending(false)
+    }
+  }
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 1 }}>
@@ -186,6 +228,9 @@ export default function App() {
         <TabBar active={activeTab} onChange={setActiveTab} />
       </Box>
       {statusMessage && <Typography color="error">{statusMessage}</Typography>}
+      {activeTab === 'chat' ? (
+        <ChatPanel messages={chatMessages} sending={chatSending} onSend={handleSendChat} />
+      ) : (
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Box sx={{ width: '30%', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <Box
@@ -239,6 +284,7 @@ export default function App() {
           />
         </Box>
       </Box>
+      )}
       <CreateEnvironmentDialog
         open={createDialogOpen}
         onCreate={handleCreateEnvironment}
