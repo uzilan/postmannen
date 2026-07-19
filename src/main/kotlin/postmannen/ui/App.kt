@@ -33,6 +33,7 @@ class App(
     private val hintLabel = Label("")
     private val window = BasicWindow("postmannen")
     private var comparisonWindow: ComparisonOverlay? = null
+    private var comparisonWindowUids: Set<String> = emptySet()
     private var namePromptWindow: NamePromptOverlay? = null
 
     fun run() {
@@ -152,7 +153,15 @@ class App(
 
         statusBar.setText(if (state.loading) "Loading..." else state.statusMessage)
 
-        if (state.comparisonVisible && comparisonWindow == null) {
+        val comparisonUids = state.comparisonDetails.map { it.uid }.toSet()
+        if (state.comparisonVisible && (comparisonWindow == null || comparisonUids != comparisonWindowUids)) {
+            // The overlay's columns/rows are fixed at construction time from
+            // initialDetails (see ComparisonOverlay.applyDetails's doc comment) — if
+            // the set of environments being shown changes (e.g. [v]iewing a different
+            // single environment right after a [c]ompare), patching in place would
+            // leave stale columns/keys from the environments no longer in view. Rebuild
+            // the window whenever the uid set changes, not just on the visibility edge.
+            comparisonWindow?.close()
             val win = ComparisonOverlay(
                 gui = gui,
                 initialDetails = state.comparisonDetails,
@@ -163,10 +172,12 @@ class App(
                 onDismiss = { viewModel.closeComparison() }
             )
             comparisonWindow = win
+            comparisonWindowUids = comparisonUids
             gui.addWindow(win)
         } else if (!state.comparisonVisible && comparisonWindow != null) {
             comparisonWindow?.close()
             comparisonWindow = null
+            comparisonWindowUids = emptySet()
         } else if (state.comparisonVisible && comparisonWindow != null) {
             comparisonWindow?.applyDetails(state.comparisonDetails)
         }
