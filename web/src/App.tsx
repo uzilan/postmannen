@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Box, Button, Typography } from '@mui/material'
+import { Box, Button, CircularProgress, Typography } from '@mui/material'
 import {
   createEnvironment,
   getCollectionDetail,
@@ -22,6 +22,22 @@ import { DetailPanel, detailContentLabel } from './components/DetailPanel'
 import type { DetailContent } from './components/DetailPanel'
 import { CreateEnvironmentDialog } from './components/CreateEnvironmentDialog'
 import { ChatPanel } from './components/ChatPanel'
+import { ResizableDivider } from './components/ResizableDivider'
+
+const COLUMN_WIDTHS_KEY = 'postmannen.columnWidths'
+const MIN_COLUMN_WIDTH = 150
+
+function loadColumnWidths(): { leftWidth: number; rightWidth: number } {
+  const saved = localStorage.getItem(COLUMN_WIDTHS_KEY)
+  if (saved) {
+    try {
+      return JSON.parse(saved)
+    } catch {
+      // fall through to defaults
+    }
+  }
+  return { leftWidth: window.innerWidth * 0.3, rightWidth: window.innerWidth * 0.3 }
+}
 
 export default function App() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
@@ -39,10 +55,13 @@ export default function App() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
+  const [{ leftWidth, rightWidth }, setColumnWidths] = useState(loadColumnWidths)
+
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatSessionId, setChatSessionId] = useState<string | null>(null)
   const [chatSending, setChatSending] = useState(false)
   const [refreshingWorkspace, setRefreshingWorkspace] = useState(false)
+  const [loadingWorkspaceData, setLoadingWorkspaceData] = useState(false)
 
   useEffect(() => {
     setDetailContent({ kind: 'none' })
@@ -60,27 +79,32 @@ export default function App() {
   }, [])
 
   const loadWorkspaceData = async (workspaceId: string) => {
+    setLoadingWorkspaceData(true)
     try {
-      const cols = await getCollections(workspaceId)
-      setCollections(cols)
-      const results = await Promise.all(
-        cols.map(async (c) => {
-          try {
-            return [c.uid, await getCollectionDetail(c.uid)] as const
-          } catch {
-            return null
-          }
-        })
-      )
-      setCollectionDetails(new Map(results.filter((r): r is readonly [string, CollectionDetail] => r !== null)))
-    } catch (e) {
-      setStatusMessage(`Error: ${(e as Error).message}`)
-    }
+      try {
+        const cols = await getCollections(workspaceId)
+        setCollections(cols)
+        const results = await Promise.all(
+          cols.map(async (c) => {
+            try {
+              return [c.uid, await getCollectionDetail(c.uid)] as const
+            } catch {
+              return null
+            }
+          })
+        )
+        setCollectionDetails(new Map(results.filter((r): r is readonly [string, CollectionDetail] => r !== null)))
+      } catch (e) {
+        setStatusMessage(`Error: ${(e as Error).message}`)
+      }
 
-    try {
-      setEnvironments(await getEnvironments(workspaceId))
-    } catch (e) {
-      setStatusMessage(`Error: ${(e as Error).message}`)
+      try {
+        setEnvironments(await getEnvironments(workspaceId))
+      } catch (e) {
+        setStatusMessage(`Error: ${(e as Error).message}`)
+      }
+    } finally {
+      setLoadingWorkspaceData(false)
     }
   }
 
@@ -232,6 +256,29 @@ export default function App() {
     }
   }
 
+  const handleLeftResize = (deltaX: number) => {
+    setColumnWidths((prev) => {
+      const maxLeftWidth = window.innerWidth - prev.rightWidth - MIN_COLUMN_WIDTH
+      const leftWidth = Math.min(maxLeftWidth, Math.max(MIN_COLUMN_WIDTH, prev.leftWidth + deltaX))
+      return { ...prev, leftWidth }
+    })
+  }
+
+  const handleRightResize = (deltaX: number) => {
+    setColumnWidths((prev) => {
+      const maxRightWidth = window.innerWidth - prev.leftWidth - MIN_COLUMN_WIDTH
+      const rightWidth = Math.min(maxRightWidth, Math.max(MIN_COLUMN_WIDTH, prev.rightWidth - deltaX))
+      return { ...prev, rightWidth }
+    })
+  }
+
+  const handleResizeEnd = () => {
+    setColumnWidths((current) => {
+      localStorage.setItem(COLUMN_WIDTHS_KEY, JSON.stringify(current))
+      return current
+    })
+  }
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 1 }}>
@@ -241,14 +288,29 @@ export default function App() {
       {statusMessage && <Typography color="error">{statusMessage}</Typography>}
       {refreshingWorkspace && <Typography color="text.secondary">Refreshing workspace…</Typography>}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <Box sx={{ width: '30%', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ width: `${leftWidth}px`, flexShrink: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <Box
             component="fieldset"
-            sx={{ borderColor: 'divider', borderRadius: 1, m: 1, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+            sx={{ borderColor: 'divider', borderRadius: 1, m: 1, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}
           >
             <Box component="legend" sx={{ px: 1 }}>
               {activeTab === 'collections' ? 'Collections' : 'Environments'}
             </Box>
+            {loadingWorkspaceData && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  bgcolor: 'background.paper',
+                  opacity: 0.8,
+                }}
+              >
+                <CircularProgress />
+              </Box>
+            )}
             <Box sx={{ overflow: 'auto', flex: 1 }}>
               {activeTab === 'collections' &&
                 collections.map((c) => {
@@ -284,7 +346,8 @@ export default function App() {
             </Box>
           </Box>
         </Box>
-        <Box sx={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <ResizableDivider onResize={handleLeftResize} onResizeEnd={handleResizeEnd} />
+        <Box sx={{ flex: 1, minWidth: `${MIN_COLUMN_WIDTH}px`, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <Box
             component="fieldset"
             sx={{ borderColor: 'divider', borderRadius: 1, m: 1, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
@@ -303,7 +366,8 @@ export default function App() {
             </Box>
           </Box>
         </Box>
-        <Box sx={{ width: '30%', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <ResizableDivider onResize={handleRightResize} onResizeEnd={handleResizeEnd} />
+        <Box sx={{ width: `${rightWidth}px`, flexShrink: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <Box
             component="fieldset"
             sx={{ borderColor: 'divider', borderRadius: 1, m: 1, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
