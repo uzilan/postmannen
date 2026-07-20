@@ -51,6 +51,18 @@ fun Route.workspaceRoutes(service: PostmanApiService) {
         }
     }
 
+    post("/api/workspaces/refresh") {
+        service.invalidateAll()
+        call.respond(HttpStatusCode.NoContent)
+    }.describe {
+        summary = "Invalidate the entire cache"
+        responses {
+            HttpStatusCode.NoContent {
+                description = "All cached workspaces/collections/environments were invalidated"
+            }
+        }
+    }
+
     post("/api/workspaces/{id}/refresh") {
         val id = call.parameters["id"]!!
         service.invalidateWorkspace(id)

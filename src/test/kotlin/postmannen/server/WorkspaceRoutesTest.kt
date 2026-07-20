@@ -65,4 +65,19 @@ class WorkspaceRoutesTest {
         assertEquals(HttpStatusCode.NoContent, response.status)
         assertTrue("ws-1" in fake.invalidateWorkspaceCalls)
     }
+
+    @Test
+    fun `POST api-workspaces-refresh invalidates everything and returns 204`() = testApplication {
+        val fake = FakePostmanApiService()
+        application {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+            routing { workspaceRoutes(fake) }
+        }
+        val client = createClient { install(ClientContentNegotiation) { json(Json { ignoreUnknownKeys = true }) } }
+
+        val response = client.post("/api/workspaces/refresh")
+
+        assertEquals(HttpStatusCode.NoContent, response.status)
+        assertEquals(1, fake.invalidateAllCallCount)
+    }
 }

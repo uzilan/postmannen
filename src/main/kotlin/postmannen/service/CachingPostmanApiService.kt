@@ -67,4 +67,12 @@ class CachingPostmanApiService(private val delegate: PostmanApiService) : Postma
         collectionUids.forEach { collectionDetailCache.remove(it) }
         environmentUids.forEach { environmentDetailCache.remove(it) }
     }
+
+    override fun invalidateAll() {
+        workspacesCache.set(null)
+        collectionsCache.clear()
+        environmentsCache.clear()
+        collectionDetailCache.clear()
+        environmentDetailCache.clear()
+    }
 }

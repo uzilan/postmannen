@@ -35,6 +35,7 @@ class FakePostmanApiService : PostmanApiService {
     var deleteCollectionResult: Result<Unit> = Result.success(Unit)
     var lastDeletedCollectionUid: String? = null
     val invalidateWorkspaceCalls: MutableList<String> = mutableListOf()
+    var invalidateAllCallCount: Int = 0
 
     override suspend fun getWorkspaces(): Result<List<Workspace>> = workspacesResult
 
@@ -80,6 +81,10 @@ class FakePostmanApiService : PostmanApiService {
 
     override fun invalidateWorkspace(workspaceId: String) {
         invalidateWorkspaceCalls.add(workspaceId)
+    }
+
+    override fun invalidateAll() {
+        invalidateAllCallCount++
     }
 
     companion object {

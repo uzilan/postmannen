@@ -17,4 +17,5 @@ interface PostmanApiService {
     suspend fun createCollection(workspaceId: String, name: String): Result<Collection>
     suspend fun deleteCollection(uid: String): Result<Unit>
     fun invalidateWorkspace(workspaceId: String) {}
+    fun invalidateAll() {}
 }
