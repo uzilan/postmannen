@@ -239,9 +239,12 @@ export function DetailPanel(props: {
     const { item } = content
     return (
       <>
-        <Typography>
-          <strong>{item.method}</strong> {item.url}
-        </Typography>
+        <fieldset>
+          <legend>Request</legend>
+          <Typography>
+            <strong>{item.method}</strong> {item.url}
+          </Typography>
+        </fieldset>
         {item.headers.length > 0 && (
           <fieldset>
             <legend>Headers</legend>
