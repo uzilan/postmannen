@@ -40,7 +40,8 @@ class ClaudeCliServiceImpl(private val postmanApiKey: String) : ClaudeCliService
                     "--output-format", "stream-json",
                     "--verbose",
                     "--mcp-config", configFile.absolutePath,
-                    "--allowedTools", "mcp__postman"
+                    "--allowedTools", "mcp__postman",
+                    "--append-system-prompt", "Give short, concise answers."
                 )
                 resumeSessionId?.let { command += listOf("--resume", it) }
 

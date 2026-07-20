@@ -31,11 +31,6 @@ export function ChatPanel(props: {
             >
               {m.text}
             </Typography>
-            {m.role === 'assistant' && m.toolsUsed.length > 0 && (
-              <Typography variant="caption" color="text.secondary">
-                used: {m.toolsUsed.join(', ')}
-              </Typography>
-            )}
             {m.role === 'assistant' && m.errored && (
               <Typography variant="caption" color="error">
                 error

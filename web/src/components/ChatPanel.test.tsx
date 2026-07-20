@@ -14,14 +14,6 @@ describe('ChatPanel', () => {
     expect(screen.getByText('hi there')).toBeInTheDocument()
   })
 
-  it('shows a tools-used line for assistant messages that used tools', () => {
-    const messages: ChatMessage[] = [
-      { role: 'assistant', text: 'done', toolsUsed: ['update_environment', 'get_environment'], errored: false },
-    ]
-    render(<ChatPanel messages={messages} sending={false} onSend={vi.fn()} />)
-    expect(screen.getByText(/update_environment, get_environment/)).toBeInTheDocument()
-  })
-
   it('marks errored assistant messages distinctly', () => {
     const messages: ChatMessage[] = [
       { role: 'assistant', text: 'Error: boom', toolsUsed: [], errored: true },
