@@ -286,27 +286,42 @@ export default function App() {
   }
 
   const handleRenameCollection = async (uid: string, name: string) => {
+    const previousName = collections.find((c) => c.uid === uid)?.name
+    setCollections((prev) => prev.map((c) => (c.uid === uid ? { ...c, name } : c)))
+    setCollectionDetails((prev) => {
+      const existing = prev.get(uid)
+      if (!existing) return prev
+      const next = new Map(prev)
+      next.set(uid, { ...existing, name })
+      return next
+    })
     try {
       await renameCollection(uid, name)
-      setCollections((prev) => prev.map((c) => (c.uid === uid ? { ...c, name } : c)))
-      setCollectionDetails((prev) => {
-        const existing = prev.get(uid)
-        if (!existing) return prev
-        const next = new Map(prev)
-        next.set(uid, { ...existing, name })
-        return next
-      })
     } catch (e) {
       setStatusMessage(`Error: ${(e as Error).message}`)
+      if (previousName !== undefined) {
+        setCollections((prev) => prev.map((c) => (c.uid === uid ? { ...c, name: previousName } : c)))
+        setCollectionDetails((prev) => {
+          const existing = prev.get(uid)
+          if (!existing) return prev
+          const next = new Map(prev)
+          next.set(uid, { ...existing, name: previousName })
+          return next
+        })
+      }
     }
   }
 
   const handleRenameEnvironment = async (uid: string, name: string) => {
+    const previousName = environments.find((e) => e.uid === uid)?.name
+    setEnvironments((prev) => prev.map((e) => (e.uid === uid ? { ...e, name } : e)))
     try {
       await renameEnvironment(uid, name)
-      setEnvironments((prev) => prev.map((e) => (e.uid === uid ? { ...e, name } : e)))
     } catch (e) {
       setStatusMessage(`Error: ${(e as Error).message}`)
+      if (previousName !== undefined) {
+        setEnvironments((prev) => prev.map((e) => (e.uid === uid ? { ...e, name: previousName } : e)))
+      }
     }
   }
 
