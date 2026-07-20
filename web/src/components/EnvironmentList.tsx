@@ -33,7 +33,7 @@ export function EnvironmentList(props: {
   }
 
   return (
-    <List>
+    <List dense>
       {environments.map((env) => (
         <ListItemButton
           key={env.id}

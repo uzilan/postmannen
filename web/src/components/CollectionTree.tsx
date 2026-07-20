@@ -126,7 +126,7 @@ export function CollectionTree(props: {
   const isCollapsed = collapsedIds.has(detail.uid)
 
   return (
-    <List>
+    <List dense>
       <ListItemButton
         onClick={() => {
           if (isEditing) return
