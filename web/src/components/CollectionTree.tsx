@@ -1,12 +1,33 @@
 import { useState } from 'react'
-import { IconButton, List, ListItemButton, ListItemIcon, ListItemText } from '@mui/material'
+import { Box, IconButton, List, ListItemButton, ListItemIcon, ListItemText } from '@mui/material'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import DeleteIcon from '@mui/icons-material/Delete'
-import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import type { CollectionDetail, CollectionNode, CollectionVariable } from '../api'
 
 type RequestItemNode = Extract<CollectionNode, { type: 'item' }>
+
+const METHOD_COLORS: Record<string, string> = {
+  GET: '#4caf50',
+  POST: '#ff9800',
+  PUT: '#2196f3',
+  PATCH: '#9c27b0',
+  DELETE: '#f44336',
+  HEAD: '#795548',
+  OPTIONS: '#607d8b',
+}
+
+function MethodLabel({ method }: { method: string }) {
+  const color = METHOD_COLORS[method.toUpperCase()] ?? '#9e9e9e'
+  return (
+    <Box
+      component="span"
+      sx={{ color, fontWeight: 'bold', fontSize: '0.75rem', minWidth: 48, display: 'inline-block', mr: 1 }}
+    >
+      {method.toUpperCase()}
+    </Box>
+  )
+}
 
 export function collectNodeIds(parentId: string, nodes: CollectionNode[]): string[] {
   return nodes.flatMap((node, i) => {
@@ -30,7 +51,7 @@ function TreeNode(props: {
     return (
       <ListItemButton sx={{ pl: (depth + 1) * 2 + 4 }} disableRipple onClick={() => onSelectRequest(node)}>
         <ListItemIcon sx={{ minWidth: 32 }}>
-          <DescriptionOutlinedIcon fontSize="small" />
+          <MethodLabel method={node.method} />
         </ListItemIcon>
         <ListItemText>{node.name}</ListItemText>
       </ListItemButton>

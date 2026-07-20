@@ -146,19 +146,34 @@ workspace and detail-panel selection in `App.tsx`'s `handleSendChat`.
   depth-1 folder/item visibly indents past the collection row's own
   default padding — using plain `depth * 2` makes depth-1 rows land at
   the same horizontal position as the collection row above them.
+  Request leaf nodes show a color-coded HTTP method label
+  (`MethodLabel` in `CollectionTree.tsx`, `METHOD_COLORS` map — GET
+  green, POST orange, PUT blue, PATCH purple, DELETE red, unknown
+  methods fall back to grey) instead of a generic file icon, with a
+  fixed `minWidth` + `mr` so longer method names (`DELETE`) still leave
+  a gap before the request name.
 - **Left panel legend**: both the Collections and Environments tabs
   render inside one shared bordered `<fieldset>`/`<legend>` in `App.tsx`,
   with the legend text switching on `activeTab` — don't duplicate the
   fieldset per tab, just swap the legend string and inner content.
 - **Right panel (`DetailPanel.tsx`)** dispatches on a `DetailContent`
   discriminated union (`none`/`loading`/`collectionVariables`/
-  `environments`), mirroring the old Lanterna `DetailContent` sealed
-  class. Both the collection-variables view and the environment
-  key/value grid render inside their own bordered `<fieldset>` — legend
-  is `"Variables"` for collection variables, and the comma-joined shown
-  environment name(s) (e.g. `"Staging"` or `"Staging, Production"`) for
-  the environment grid, so the compare case is self-labeling without a
-  separate "Compare" concept.
+  `environments`/`request`), mirroring the old Lanterna `DetailContent`
+  sealed class. The collection-variables view, the environment
+  key/value grid, and a selected request's headers/body each render
+  inside their own bordered `<fieldset>` — legend is `"Variables"` for
+  collection variables, the comma-joined shown environment name(s)
+  (e.g. `"Staging"` or `"Staging, Production"`) for the environment
+  grid, so the compare case is self-labeling without a separate
+  "Compare" concept, and `"Headers"`/`"Body"` for the request view.
+  Each of those two request fieldsets is only rendered when there's
+  content (`item.headers.length > 0`, `item.body != null`) — an empty
+  section isn't shown as an empty box. The body is rendered through
+  `JsonBody`, a dependency-free regex tokenizer (not `JSON.parse`,
+  since Postman request bodies can carry `//` comments and so aren't
+  strict JSON) that colors comments/keys/strings/literals/numbers
+  VS-Code-dark-style; no syntax-highlighting npm package is installed
+  for this.
 - **Add/delete key row is a fan-out**: editing a key across the
   currently-shown environment set calls `updateEnvironment` once per
   shown environment (`Promise.all` in `App.tsx`'s `handleAddKey`/

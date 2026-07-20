@@ -1,9 +1,57 @@
-import { Button, IconButton, Table, TableBody, TableCell, TableHead, TableRow, Checkbox, TextField, Typography } from '@mui/material'
+import { Box, Button, IconButton, Table, TableBody, TableCell, TableHead, TableRow, Checkbox, TextField, Typography } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import type { CollectionNode, CollectionVariable, EnvironmentDetail } from '../api'
 
 type RequestItemNode = Extract<CollectionNode, { type: 'item' }>
+
+const JSON_TOKEN_PATTERN =
+  /(\/\/.*$)|("(?:\\.|[^"\\])*"(?=\s*:))|("(?:\\.|[^"\\])*")|(\b(?:true|false|null)\b)|(-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|([{}[\],:])/gm
+
+const JSON_TOKEN_COLORS = {
+  comment: '#6a9955',
+  key: '#9cdcfe',
+  string: '#ce9178',
+  literal: '#569cd6',
+  number: '#b5cea8',
+  punctuation: '#d4d4d4',
+} as const
+
+function JsonBody({ text }: { text: string }) {
+  const parts: React.ReactNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  JSON_TOKEN_PATTERN.lastIndex = 0
+  while ((match = JSON_TOKEN_PATTERN.exec(text))) {
+    if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index))
+    const [full, comment, key, string, literal, number] = match
+    const color = comment
+      ? JSON_TOKEN_COLORS.comment
+      : key
+        ? JSON_TOKEN_COLORS.key
+        : string
+          ? JSON_TOKEN_COLORS.string
+          : literal
+            ? JSON_TOKEN_COLORS.literal
+            : number
+              ? JSON_TOKEN_COLORS.number
+              : JSON_TOKEN_COLORS.punctuation
+    parts.push(
+      <Box component="span" key={match.index} sx={{ color }}>
+        {full}
+      </Box>
+    )
+    lastIndex = match.index + full.length
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex))
+  return (
+    <Typography component="pre">
+      {parts.map((p, i) => (
+        <Fragment key={i}>{p}</Fragment>
+      ))}
+    </Typography>
+  )
+}
 
 export type DetailContent =
   | { kind: 'none' }
@@ -54,23 +102,33 @@ export function DetailPanel(props: {
         <Typography>
           <strong>{item.method}</strong> {item.url}
         </Typography>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Header</TableCell>
-              <TableCell>Value</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {item.headers.map((h) => (
-              <TableRow key={h.key}>
-                <TableCell>{h.key}</TableCell>
-                <TableCell>{h.value}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <Typography component="pre">{item.body ?? '(no body)'}</Typography>
+        {item.headers.length > 0 && (
+          <fieldset>
+            <legend>Headers</legend>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Header</TableCell>
+                  <TableCell>Value</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {item.headers.map((h) => (
+                  <TableRow key={h.key}>
+                    <TableCell>{h.key}</TableCell>
+                    <TableCell>{h.value}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </fieldset>
+        )}
+        {item.body != null && (
+          <fieldset>
+            <legend>Body</legend>
+            <JsonBody text={item.body} />
+          </fieldset>
+        )}
       </>
     )
   }
