@@ -41,7 +41,10 @@ class ClaudeCliServiceImpl(private val postmanApiKey: String) : ClaudeCliService
                     "--verbose",
                     "--mcp-config", configFile.absolutePath,
                     "--allowedTools", "mcp__postman",
-                    "--append-system-prompt", "Give short, concise answers."
+                    "--append-system-prompt",
+                    "Give short, concise answers. Report only the final outcome of the " +
+                        "action taken — do not narrate intermediate steps like looking " +
+                        "something up, fetching it, or finding it."
                 )
                 resumeSessionId?.let { command += listOf("--resume", it) }
 
