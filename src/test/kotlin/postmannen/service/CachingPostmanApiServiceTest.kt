@@ -1,6 +1,7 @@
 package postmannen.service
 
 import kotlinx.coroutines.test.runTest
+import postmannen.model.Collection
 import postmannen.model.Environment
 import postmannen.model.EnvironmentDetail
 import postmannen.model.EnvironmentValue
@@ -27,6 +28,7 @@ private class CountingPostmanApiService(private val delegate: PostmanApiService)
         delegate.getEnvironmentDetail(environmentUid).also { getEnvironmentDetailCalls.add(environmentUid) }
     override suspend fun updateEnvironment(detail: EnvironmentDetail) = delegate.updateEnvironment(detail)
     override suspend fun createEnvironment(workspaceId: String, name: String) = delegate.createEnvironment(workspaceId, name)
+    override suspend fun createCollection(workspaceId: String, name: String) = delegate.createCollection(workspaceId, name)
 }
 
 class CachingPostmanApiServiceTest {
@@ -118,6 +120,21 @@ class CachingPostmanApiServiceTest {
 
         assertEquals(FakePostmanApiService.FIXTURE_ENVIRONMENTS + Environment(id = "env-9", name = "QA", uid = "env-9-uid"), result.getOrThrow())
         assertEquals(listOf("ws-1"), counting.getEnvironmentsCalls)
+    }
+
+    @Test
+    fun `createCollection appends to an already-cached collections list`() = runTest {
+        val fake = FakePostmanApiService()
+        fake.createCollectionResult = Result.success(Collection(id = "col-9", name = "QA API", uid = "col-9-uid"))
+        val counting = CountingPostmanApiService(fake)
+        val cache = CachingPostmanApiService(counting)
+        cache.getCollections("ws-1")
+
+        cache.createCollection("ws-1", "QA API")
+        val result = cache.getCollections("ws-1")
+
+        assertEquals(FakePostmanApiService.FIXTURE_COLLECTIONS + Collection(id = "col-9", name = "QA API", uid = "col-9-uid"), result.getOrThrow())
+        assertEquals(listOf("ws-1"), counting.getCollectionsCalls)
     }
 
     @Test

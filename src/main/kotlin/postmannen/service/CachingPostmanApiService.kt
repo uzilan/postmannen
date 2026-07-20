@@ -48,6 +48,11 @@ class CachingPostmanApiService(private val delegate: PostmanApiService) : Postma
             environmentsCache[workspaceId] = (environmentsCache[workspaceId] ?: emptyList()) + env
         }
 
+    override suspend fun createCollection(workspaceId: String, name: String): Result<Collection> =
+        delegate.createCollection(workspaceId, name).onSuccess { col ->
+            collectionsCache[workspaceId] = (collectionsCache[workspaceId] ?: emptyList()) + col
+        }
+
     override fun invalidateWorkspace(workspaceId: String) {
         val collectionUids = collectionsCache.remove(workspaceId)?.map { it.uid } ?: emptyList()
         val environmentUids = environmentsCache.remove(workspaceId)?.map { it.uid } ?: emptyList()

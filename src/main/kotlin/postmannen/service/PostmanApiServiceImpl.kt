@@ -117,6 +117,28 @@ class PostmanApiServiceImpl(
         Environment(id = response.environment.id, name = response.environment.name, uid = response.environment.uid)
     }
 
+    override suspend fun createCollection(workspaceId: String, name: String): Result<Collection> = runCatching {
+        val response: CollectionCreateResponse = client.post {
+            url {
+                appendPathSegments("collections")
+                parameters.append("workspace", workspaceId)
+            }
+            contentType(ContentType.Application.Json)
+            setBody(
+                CollectionCreateRequest(
+                    CollectionCreateDto(
+                        info = CollectionCreateInfoDto(
+                            name = name,
+                            schema = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+                        ),
+                        item = emptyList()
+                    )
+                )
+            )
+        }.body()
+        Collection(id = response.collection.id, name = response.collection.name, uid = response.collection.uid)
+    }
+
     companion object {
         const val BASE_URL = "https://api.getpostman.com"
     }
@@ -169,6 +191,21 @@ private data class EnvironmentCreateResponse(val environment: EnvironmentCreateR
 
 @Serializable
 private data class EnvironmentCreateResponseDto(val id: String, val name: String, val uid: String)
+
+@Serializable
+private data class CollectionCreateRequest(val collection: CollectionCreateDto)
+
+@Serializable
+private data class CollectionCreateDto(val info: CollectionCreateInfoDto, val item: List<CollectionItemDto>)
+
+@Serializable
+private data class CollectionCreateInfoDto(val name: String, val schema: String)
+
+@Serializable
+private data class CollectionCreateResponse(val collection: CollectionCreateResponseDto)
+
+@Serializable
+private data class CollectionCreateResponseDto(val id: String, val name: String, val uid: String)
 
 @Serializable
 private data class CollectionDetailResponse(val collection: CollectionDetailDto)
