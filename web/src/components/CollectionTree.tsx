@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { List, ListItemButton, ListItemIcon, ListItemText } from '@mui/material'
+import { IconButton, List, ListItemButton, ListItemIcon, ListItemText } from '@mui/material'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import DeleteIcon from '@mui/icons-material/Delete'
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import type { CollectionDetail, CollectionNode, CollectionVariable } from '../api'
@@ -66,8 +67,9 @@ export function CollectionTree(props: {
   defaultExpanded?: boolean
   onSelectVariables: (variables: CollectionVariable[]) => void
   onSelectRequest: (item: RequestItemNode) => void
+  onDeleteCollection: (uid: string, name: string) => void
 }) {
-  const { detail, defaultExpanded, onSelectVariables, onSelectRequest } = props
+  const { detail, defaultExpanded, onSelectVariables, onSelectRequest, onDeleteCollection } = props
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(
     () => (defaultExpanded ? new Set<string>() : new Set([detail.uid, ...collectNodeIds(detail.uid, detail.items)]))
   )
@@ -90,11 +92,24 @@ export function CollectionTree(props: {
           onToggle(detail.uid)
           onSelectVariables(detail.variables)
         }}
+        sx={{ '&:hover .delete-collection-button': { opacity: 1 } }}
       >
         <ListItemIcon sx={{ minWidth: 32 }}>
           {isCollapsed ? <ChevronRightIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
         </ListItemIcon>
         <ListItemText>{detail.name}</ListItemText>
+        <IconButton
+          className="delete-collection-button"
+          aria-label="Delete collection"
+          size="small"
+          sx={{ opacity: 0 }}
+          onClick={(e) => {
+            e.stopPropagation()
+            onDeleteCollection(detail.uid, detail.name)
+          }}
+        >
+          <DeleteIcon fontSize="small" />
+        </IconButton>
       </ListItemButton>
       {!isCollapsed &&
         detail.items.map((node, i) => (

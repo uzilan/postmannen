@@ -48,20 +48,20 @@ describe('collectNodeIds', () => {
 
 describe('CollectionTree', () => {
   it('starts fully collapsed, showing only the collection name', () => {
-    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} />)
+    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} />)
     expect(screen.getByText('Auth API')).toBeInTheDocument()
     expect(screen.queryByText('Users')).not.toBeInTheDocument()
   })
 
   it('expands the collection on click, revealing its top-level folders/items still collapsed', () => {
-    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} />)
+    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} />)
     fireEvent.click(screen.getByText('Auth API'))
     expect(screen.getByText('Users')).toBeInTheDocument()
     expect(screen.queryByText('Login')).not.toBeInTheDocument()
   })
 
   it('expands a nested folder on click, revealing its children', () => {
-    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} />)
+    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} />)
     fireEvent.click(screen.getByText('Auth API'))
     fireEvent.click(screen.getByText('Users'))
     expect(screen.getByText('Login')).toBeInTheDocument()
@@ -70,14 +70,14 @@ describe('CollectionTree', () => {
 
   it('calls onSelectVariables with the collection variables when the collection row is clicked', () => {
     const onSelectVariables = vi.fn()
-    render(<CollectionTree detail={detail} onSelectVariables={onSelectVariables} onSelectRequest={vi.fn()} />)
+    render(<CollectionTree detail={detail} onSelectVariables={onSelectVariables} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} />)
     fireEvent.click(screen.getByText('Auth API'))
     expect(onSelectVariables).toHaveBeenCalledWith(detail.variables)
   })
 
   it('calls onSelectRequest with the item node when a request row is clicked', () => {
     const onSelectRequest = vi.fn()
-    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={onSelectRequest} />)
+    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={onSelectRequest} onDeleteCollection={vi.fn()} />)
     fireEvent.click(screen.getByText('Auth API'))
     fireEvent.click(screen.getByText('Health Check'))
     expect(onSelectRequest).toHaveBeenCalledWith(healthCheckItem)
@@ -85,8 +85,41 @@ describe('CollectionTree', () => {
 
   it('renders expanded by default when defaultExpanded is true', () => {
     render(
-      <CollectionTree detail={detail} defaultExpanded onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} />
+      <CollectionTree detail={detail} defaultExpanded onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} />
     )
     expect(screen.getByText('Users')).toBeInTheDocument()
+  })
+
+  it('calls onDeleteCollection with the collection uid and name when the delete icon is clicked', () => {
+    const onDeleteCollection = vi.fn()
+    render(
+      <CollectionTree
+        detail={detail}
+        onSelectVariables={vi.fn()}
+        onSelectRequest={vi.fn()}
+        onDeleteCollection={onDeleteCollection}
+      />
+    )
+
+    fireEvent.click(screen.getByLabelText('Delete collection'))
+
+    expect(onDeleteCollection).toHaveBeenCalledWith('col-1-uid', 'Auth API')
+  })
+
+  it('does not toggle or select variables when the delete icon is clicked', () => {
+    const onSelectVariables = vi.fn()
+    render(
+      <CollectionTree
+        detail={detail}
+        onSelectVariables={onSelectVariables}
+        onSelectRequest={vi.fn()}
+        onDeleteCollection={vi.fn()}
+      />
+    )
+
+    fireEvent.click(screen.getByLabelText('Delete collection'))
+
+    expect(onSelectVariables).not.toHaveBeenCalled()
+    expect(screen.queryByText('Users')).not.toBeInTheDocument()
   })
 })
