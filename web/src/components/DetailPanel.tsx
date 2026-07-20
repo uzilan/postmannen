@@ -318,7 +318,7 @@ export function DetailPanel(props: {
             </TableRow>
           </DndContext>
         </TableHead>
-        <TableBody>
+        <TableBody sx={{ '& .MuiTableCell-root': { borderBottom: 'none' } }}>
           {keys.map((key) => (
             <TableRow key={key}>
               <TableCell
