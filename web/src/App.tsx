@@ -13,6 +13,8 @@ import {
   isWriteTool,
   refreshAllWorkspaces,
   refreshWorkspace,
+  renameCollection,
+  renameEnvironment,
   sendChatMessage,
   updateEnvironment,
 } from './api'
@@ -283,6 +285,31 @@ export default function App() {
     }
   }
 
+  const handleRenameCollection = async (uid: string, name: string) => {
+    try {
+      await renameCollection(uid, name)
+      setCollections((prev) => prev.map((c) => (c.uid === uid ? { ...c, name } : c)))
+      setCollectionDetails((prev) => {
+        const existing = prev.get(uid)
+        if (!existing) return prev
+        const next = new Map(prev)
+        next.set(uid, { ...existing, name })
+        return next
+      })
+    } catch (e) {
+      setStatusMessage(`Error: ${(e as Error).message}`)
+    }
+  }
+
+  const handleRenameEnvironment = async (uid: string, name: string) => {
+    try {
+      await renameEnvironment(uid, name)
+      setEnvironments((prev) => prev.map((e) => (e.uid === uid ? { ...e, name } : e)))
+    } catch (e) {
+      setStatusMessage(`Error: ${(e as Error).message}`)
+    }
+  }
+
   const handleSendChat = async (text: string) => {
     setChatMessages((prev) => [...prev, { role: 'user', text }])
     setChatSending(true)
@@ -428,6 +455,7 @@ export default function App() {
                         onSelectVariables={(variables) => setDetailContent({ kind: 'collectionVariables', variables })}
                         onSelectRequest={(item) => setDetailContent({ kind: 'request', item })}
                         onDeleteCollection={(uid, name) => setCollectionPendingDelete({ uid, name })}
+                        onRenameCollection={handleRenameCollection}
                       />
                     ) : null
                   })}
@@ -450,6 +478,7 @@ export default function App() {
                       })
                     }
                     onDeleteEnvironment={(uid, name) => setEnvironmentPendingDelete({ uid, name })}
+                    onRenameEnvironment={handleRenameEnvironment}
                   />
                 </>
               )}
