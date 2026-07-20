@@ -472,6 +472,7 @@ export default function App() {
                         onDeleteCollection={(uid, name) => setCollectionPendingDelete({ uid, name })}
                         onRenameCollection={handleRenameCollection}
                         selectedRequestItem={detailContent.kind === 'request' ? detailContent.item : null}
+                        selectedVariables={detailContent.kind === 'collectionVariables' ? detailContent.variables : null}
                       />
                     ) : null
                   })}

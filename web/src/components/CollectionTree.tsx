@@ -46,8 +46,10 @@ function TreeNode(props: {
   onToggle: (id: string) => void
   onSelectRequest: (item: RequestItemNode) => void
   selectedRequestItem: RequestItemNode | null
+  selectedFolderId: string | null
+  onSelectFolder: (id: string) => void
 }) {
-  const { node, id, depth, collapsedIds, onToggle, onSelectRequest, selectedRequestItem } = props
+  const { node, id, depth, collapsedIds, onToggle, onSelectRequest, selectedRequestItem, selectedFolderId, onSelectFolder } = props
 
   if (node.type === 'item') {
     return (
@@ -68,7 +70,14 @@ function TreeNode(props: {
   const isCollapsed = collapsedIds.has(id)
   return (
     <>
-      <ListItemButton onClick={() => onToggle(id)} sx={{ pl: (depth + 1) * 2 }}>
+      <ListItemButton
+        selected={id === selectedFolderId}
+        onClick={() => {
+          onToggle(id)
+          onSelectFolder(id)
+        }}
+        sx={{ pl: (depth + 1) * 2 }}
+      >
         <ListItemIcon sx={{ minWidth: 32 }}>
           {isCollapsed ? <ChevronRightIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
         </ListItemIcon>
@@ -85,6 +94,8 @@ function TreeNode(props: {
             onToggle={onToggle}
             onSelectRequest={onSelectRequest}
             selectedRequestItem={selectedRequestItem}
+            selectedFolderId={selectedFolderId}
+            onSelectFolder={onSelectFolder}
           />
         ))}
     </>
@@ -99,14 +110,24 @@ export function CollectionTree(props: {
   onDeleteCollection: (uid: string, name: string) => void
   onRenameCollection: (uid: string, name: string) => void
   selectedRequestItem: RequestItemNode | null
+  selectedVariables: CollectionVariable[] | null
 }) {
-  const { detail, defaultExpanded, onSelectVariables, onSelectRequest, onDeleteCollection, onRenameCollection, selectedRequestItem } =
-    props
+  const {
+    detail,
+    defaultExpanded,
+    onSelectVariables,
+    onSelectRequest,
+    onDeleteCollection,
+    onRenameCollection,
+    selectedRequestItem,
+    selectedVariables,
+  } = props
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(
     () => (defaultExpanded ? new Set<string>() : new Set([detail.uid, ...collectNodeIds(detail.uid, detail.items)]))
   )
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(detail.name)
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
 
   const onToggle = (id: string) => {
     setCollapsedIds((prev) => {
@@ -137,6 +158,7 @@ export function CollectionTree(props: {
   return (
     <List dense>
       <ListItemButton
+        selected={detail.variables === selectedVariables}
         onClick={() => {
           if (isEditing) return
           onToggle(detail.uid)
@@ -199,6 +221,8 @@ export function CollectionTree(props: {
             onToggle={onToggle}
             onSelectRequest={onSelectRequest}
             selectedRequestItem={selectedRequestItem}
+            selectedFolderId={selectedFolderId}
+            onSelectFolder={setSelectedFolderId}
           />
         ))}
     </List>
