@@ -104,6 +104,24 @@ export async function deleteEnvironment(uid: string): Promise<void> {
   if (!response.ok) throw new Error(`deleteEnvironment failed: ${response.status}`)
 }
 
+export async function renameCollection(uid: string, name: string): Promise<void> {
+  const response = await fetch(`${BASE_URL}/collections/${uid}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  if (!response.ok) throw new Error(`renameCollection failed: ${response.status}`)
+}
+
+export async function renameEnvironment(uid: string, name: string): Promise<void> {
+  const response = await fetch(`${BASE_URL}/environments/${uid}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  if (!response.ok) throw new Error(`renameEnvironment failed: ${response.status}`)
+}
+
 export type ChatMessage =
   | { role: 'user'; text: string }
   | { role: 'assistant'; text: string; toolsUsed: string[]; errored: boolean }
