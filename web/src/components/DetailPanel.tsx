@@ -7,6 +7,7 @@ import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } f
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { MethodLabel } from './CollectionTree'
+import { AddKeyDialog } from './AddKeyDialog'
 
 type RequestItemNode = Extract<CollectionNode, { type: 'item' }>
 
@@ -195,7 +196,7 @@ export function DetailPanel(props: {
   onDeleteKey: (key: string) => void
 }) {
   const { content, onValueChange, onEnabledToggle, onAddKey, onDeleteKey } = props
-  const [newKey, setNewKey] = useState('')
+  const [addKeyDialogOpen, setAddKeyDialogOpen] = useState(false)
   const [columnOrder, setColumnOrder] = useState<string[]>([])
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({})
   const sensors = useSensors(useSensor(PointerSensor))
@@ -294,21 +295,15 @@ export function DetailPanel(props: {
 
   return (
     <>
-      <TextField
-        size="small"
-        placeholder="new key"
-        value={newKey}
-        onChange={(e) => setNewKey(e.target.value)}
-      />
-      <Button
-        onClick={() => {
-          if (!newKey.trim()) return
-          onAddKey(newKey)
-          setNewKey('')
+      <Button onClick={() => setAddKeyDialogOpen(true)}>Add key</Button>
+      <AddKeyDialog
+        open={addKeyDialogOpen}
+        onCreate={(key) => {
+          onAddKey(key)
+          setAddKeyDialogOpen(false)
         }}
-      >
-        Add key
-      </Button>
+        onClose={() => setAddKeyDialogOpen(false)}
+      />
       <Table sx={{ tableLayout: 'fixed' }}>
         <TableHead>
           <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
