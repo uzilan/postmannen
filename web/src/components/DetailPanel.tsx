@@ -295,7 +295,7 @@ export function DetailPanel(props: {
 
   return (
     <>
-      <Button onClick={() => setAddKeyDialogOpen(true)}>Add key</Button>
+      <Button onClick={() => setAddKeyDialogOpen(true)}>New Key</Button>
       <AddKeyDialog
         open={addKeyDialogOpen}
         onCreate={(key) => {
