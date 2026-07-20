@@ -3,6 +3,7 @@ import { Box, Button, CircularProgress, Typography } from '@mui/material'
 import {
   createCollection,
   createEnvironment,
+  deleteCollection,
   getCollectionDetail,
   getCollections,
   getEnvironmentDetail,
@@ -23,6 +24,7 @@ import { DetailPanel, detailContentLabel } from './components/DetailPanel'
 import type { DetailContent } from './components/DetailPanel'
 import { CreateEnvironmentDialog } from './components/CreateEnvironmentDialog'
 import { CreateCollectionDialog } from './components/CreateCollectionDialog'
+import { ConfirmDialog } from './components/ConfirmDialog'
 import { ChatPanel } from './components/ChatPanel'
 import { ResizableDivider } from './components/ResizableDivider'
 
@@ -58,6 +60,7 @@ export default function App() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [createCollectionDialogOpen, setCreateCollectionDialogOpen] = useState(false)
   const [newlyCreatedCollectionUid, setNewlyCreatedCollectionUid] = useState<string | null>(null)
+  const [collectionPendingDelete, setCollectionPendingDelete] = useState<{ uid: string; name: string } | null>(null)
 
   const [{ leftWidth, rightWidth }, setColumnWidths] = useState(loadColumnWidths)
 
@@ -235,6 +238,25 @@ export default function App() {
     }
   }
 
+  const handleDeleteCollection = async () => {
+    if (!collectionPendingDelete) return
+    const { uid } = collectionPendingDelete
+    try {
+      await deleteCollection(uid)
+      setCollections((prev) => prev.filter((c) => c.uid !== uid))
+      setCollectionDetails((prev) => {
+        const next = new Map(prev)
+        next.delete(uid)
+        return next
+      })
+      setDetailContent({ kind: 'none' })
+    } catch (e) {
+      setStatusMessage(`Error: ${(e as Error).message}`)
+    } finally {
+      setCollectionPendingDelete(null)
+    }
+  }
+
   const handleSendChat = async (text: string) => {
     setChatMessages((prev) => [...prev, { role: 'user', text }])
     setChatSending(true)
@@ -340,6 +362,7 @@ export default function App() {
                         defaultExpanded={c.uid === newlyCreatedCollectionUid}
                         onSelectVariables={(variables) => setDetailContent({ kind: 'collectionVariables', variables })}
                         onSelectRequest={(item) => setDetailContent({ kind: 'request', item })}
+                        onDeleteCollection={(uid, name) => setCollectionPendingDelete({ uid, name })}
                       />
                     ) : null
                   })}
@@ -409,6 +432,13 @@ export default function App() {
         open={createCollectionDialogOpen}
         onCreate={handleCreateCollection}
         onClose={() => setCreateCollectionDialogOpen(false)}
+      />
+      <ConfirmDialog
+        open={collectionPendingDelete !== null}
+        title="Delete collection"
+        message={`Delete collection "${collectionPendingDelete?.name}"? This cannot be undone.`}
+        onConfirm={handleDeleteCollection}
+        onCancel={() => setCollectionPendingDelete(null)}
       />
     </Box>
   )
