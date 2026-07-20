@@ -1,6 +1,7 @@
 .gradle/
 .kotlin/
 build/
+bin/
 .idea/
 docs/superpowers/
 .vscode/settings.json

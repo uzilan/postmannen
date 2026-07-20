@@ -27,6 +27,7 @@ dependencies {
     implementation("io.ktor:ktor-server-core:3.1.0")
     implementation("io.ktor:ktor-server-cio:3.1.0")
     implementation("io.ktor:ktor-server-content-negotiation:3.1.0")
+    implementation("ch.qos.logback:logback-classic:1.5.16")
 
     testImplementation("org.jetbrains.kotlin:kotlin-test:2.4.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
