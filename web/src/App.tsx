@@ -459,7 +459,9 @@ export default function App() {
             <Box sx={{ overflow: 'auto', flex: 1 }}>
               {activeTab === 'collections' && (
                 <>
-                  <Button onClick={() => setCreateCollectionDialogOpen(true)}>New Collection</Button>
+                  <Button variant="outlined" size="small" onClick={() => setCreateCollectionDialogOpen(true)}>
+                    New Collection
+                  </Button>
                   {collections.map((c) => {
                     const detail = collectionDetails.get(c.uid)
                     return detail ? (
@@ -480,7 +482,9 @@ export default function App() {
               )}
               {activeTab === 'environments' && (
                 <>
-                  <Button onClick={() => setCreateDialogOpen(true)}>New Environment</Button>
+                  <Button variant="outlined" size="small" onClick={() => setCreateDialogOpen(true)}>
+                    New Environment
+                  </Button>
                   <EnvironmentList
                     environments={environments}
                     highlightedId={highlightedEnvironmentId}
