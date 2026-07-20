@@ -61,7 +61,10 @@ class ClaudeCliServiceImpl(private val postmanApiKey: String) : ClaudeCliService
                             onSessionId = { newSessionId = it },
                             onEvent = { event ->
                                 when (event) {
-                                    is ClaudeStreamEvent.TextDelta -> textBuilder.append(event.text)
+                                    is ClaudeStreamEvent.AssistantText -> {
+                                        textBuilder.setLength(0)
+                                        textBuilder.append(event.text)
+                                    }
                                     is ClaudeStreamEvent.ToolUse -> toolsUsed.add(event.name)
                                     is ClaudeStreamEvent.Error -> {
                                         errored = true
@@ -136,13 +139,15 @@ class ClaudeCliServiceImpl(private val postmanApiKey: String) : ClaudeCliService
                 }
                 "assistant" -> {
                     val content: JsonArray = json["message"]?.jsonObject?.get("content")?.jsonArray ?: return@runCatching
+                    val messageText = StringBuilder()
                     content.forEach { block ->
                         val obj: JsonObject = block.jsonObject
                         when (obj["type"]?.jsonPrimitive?.content) {
-                            "text" -> onEvent(ClaudeStreamEvent.TextDelta(obj["text"]?.jsonPrimitive?.content ?: ""))
+                            "text" -> messageText.append(obj["text"]?.jsonPrimitive?.content ?: "")
                             "tool_use" -> onEvent(ClaudeStreamEvent.ToolUse(obj["name"]?.jsonPrimitive?.content ?: "unknown"))
                         }
                     }
+                    if (messageText.isNotEmpty()) onEvent(ClaudeStreamEvent.AssistantText(messageText.toString()))
                 }
                 "result" -> {
                     if (json["is_error"]?.jsonPrimitive?.boolean == true) {
@@ -157,7 +162,7 @@ class ClaudeCliServiceImpl(private val postmanApiKey: String) : ClaudeCliService
 }
 
 private sealed class ClaudeStreamEvent {
-    data class TextDelta(val text: String) : ClaudeStreamEvent()
+    data class AssistantText(val text: String) : ClaudeStreamEvent()
     data class ToolUse(val name: String) : ClaudeStreamEvent()
     data class Error(val message: String) : ClaudeStreamEvent()
     object TurnComplete : ClaudeStreamEvent()
