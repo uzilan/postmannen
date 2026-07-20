@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Box, Button, TextField, Typography } from '@mui/material'
+import { Box, Button, CircularProgress, TextField, Typography } from '@mui/material'
 import type { ChatMessage } from '../api'
 
 export function ChatPanel(props: {
@@ -43,6 +43,11 @@ export function ChatPanel(props: {
             )}
           </Box>
         ))}
+        {sending && (
+          <Box sx={{ alignSelf: 'flex-start', p: 1 }}>
+            <CircularProgress size={20} />
+          </Box>
+        )}
       </Box>
       <Box sx={{ display: 'flex', gap: 1, pt: 1 }}>
         <TextField
