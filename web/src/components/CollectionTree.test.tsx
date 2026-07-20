@@ -82,4 +82,11 @@ describe('CollectionTree', () => {
     fireEvent.click(screen.getByText('Health Check'))
     expect(onSelectRequest).toHaveBeenCalledWith(healthCheckItem)
   })
+
+  it('renders expanded by default when defaultExpanded is true', () => {
+    render(
+      <CollectionTree detail={detail} defaultExpanded onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} />
+    )
+    expect(screen.getByText('Users')).toBeInTheDocument()
+  })
 })

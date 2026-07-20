@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Box, Button, CircularProgress, Typography } from '@mui/material'
 import {
+  createCollection,
   createEnvironment,
   getCollectionDetail,
   getCollections,
@@ -21,6 +22,7 @@ import { EnvironmentList } from './components/EnvironmentList'
 import { DetailPanel, detailContentLabel } from './components/DetailPanel'
 import type { DetailContent } from './components/DetailPanel'
 import { CreateEnvironmentDialog } from './components/CreateEnvironmentDialog'
+import { CreateCollectionDialog } from './components/CreateCollectionDialog'
 import { ChatPanel } from './components/ChatPanel'
 import { ResizableDivider } from './components/ResizableDivider'
 
@@ -54,6 +56,8 @@ export default function App() {
   const [detailContent, setDetailContent] = useState<DetailContent>({ kind: 'none' })
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [createCollectionDialogOpen, setCreateCollectionDialogOpen] = useState(false)
+  const [newlyCreatedCollectionUid, setNewlyCreatedCollectionUid] = useState<string | null>(null)
 
   const [{ leftWidth, rightWidth }, setColumnWidths] = useState(loadColumnWidths)
 
@@ -219,6 +223,18 @@ export default function App() {
     }
   }
 
+  const handleCreateCollection = async (name: string) => {
+    if (!selectedWorkspaceId) return
+    try {
+      const col = await createCollection(selectedWorkspaceId, name)
+      setNewlyCreatedCollectionUid(col.uid)
+      setCreateCollectionDialogOpen(false)
+      await loadWorkspaceData(selectedWorkspaceId)
+    } catch (e) {
+      setStatusMessage(`Error: ${(e as Error).message}`)
+    }
+  }
+
   const handleSendChat = async (text: string) => {
     setChatMessages((prev) => [...prev, { role: 'user', text }])
     setChatSending(true)
@@ -312,18 +328,23 @@ export default function App() {
               </Box>
             )}
             <Box sx={{ overflow: 'auto', flex: 1 }}>
-              {activeTab === 'collections' &&
-                collections.map((c) => {
-                  const detail = collectionDetails.get(c.uid)
-                  return detail ? (
-                    <CollectionTree
-                      key={c.uid}
-                      detail={detail}
-                      onSelectVariables={(variables) => setDetailContent({ kind: 'collectionVariables', variables })}
-                      onSelectRequest={(item) => setDetailContent({ kind: 'request', item })}
-                    />
-                  ) : null
-                })}
+              {activeTab === 'collections' && (
+                <>
+                  <Button onClick={() => setCreateCollectionDialogOpen(true)}>New Collection</Button>
+                  {collections.map((c) => {
+                    const detail = collectionDetails.get(c.uid)
+                    return detail ? (
+                      <CollectionTree
+                        key={c.uid}
+                        detail={detail}
+                        defaultExpanded={c.uid === newlyCreatedCollectionUid}
+                        onSelectVariables={(variables) => setDetailContent({ kind: 'collectionVariables', variables })}
+                        onSelectRequest={(item) => setDetailContent({ kind: 'request', item })}
+                      />
+                    ) : null
+                  })}
+                </>
+              )}
               {activeTab === 'environments' && (
                 <>
                   <Button onClick={() => setCreateDialogOpen(true)}>New Environment</Button>
@@ -383,6 +404,11 @@ export default function App() {
         open={createDialogOpen}
         onCreate={handleCreateEnvironment}
         onClose={() => setCreateDialogOpen(false)}
+      />
+      <CreateCollectionDialog
+        open={createCollectionDialogOpen}
+        onCreate={handleCreateCollection}
+        onClose={() => setCreateCollectionDialogOpen(false)}
       />
     </Box>
   )

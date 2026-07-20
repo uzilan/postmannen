@@ -63,12 +63,13 @@ function TreeNode(props: {
 
 export function CollectionTree(props: {
   detail: CollectionDetail
+  defaultExpanded?: boolean
   onSelectVariables: (variables: CollectionVariable[]) => void
   onSelectRequest: (item: RequestItemNode) => void
 }) {
-  const { detail, onSelectVariables, onSelectRequest } = props
+  const { detail, defaultExpanded, onSelectVariables, onSelectRequest } = props
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(
-    () => new Set([detail.uid, ...collectNodeIds(detail.uid, detail.items)])
+    () => (defaultExpanded ? new Set<string>() : new Set([detail.uid, ...collectNodeIds(detail.uid, detail.items)]))
   )
 
   const onToggle = (id: string) => {
