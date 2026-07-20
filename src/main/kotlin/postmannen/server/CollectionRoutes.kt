@@ -7,6 +7,7 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.openapi.describe
+import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
 import io.ktor.utils.io.ExperimentalKtorApi
 import kotlinx.serialization.Serializable
@@ -15,6 +16,9 @@ import postmannen.service.PostmanApiService
 
 @Serializable
 data class CreateCollectionRequest(val workspaceId: String, val name: String)
+
+@Serializable
+data class RenameRequest(val name: String)
 
 @OptIn(ExperimentalKtorApi::class)
 fun Route.collectionRoutes(service: PostmanApiService) {
@@ -74,6 +78,32 @@ fun Route.collectionRoutes(service: PostmanApiService) {
         responses {
             HttpStatusCode.NoContent {
                 description = "The collection was deleted"
+            }
+            HttpStatusCode.BadGateway {
+                description = "The Postman API request failed"
+            }
+        }
+    }
+
+    patch("/api/collections/{uid}") {
+        val uid = call.parameters["uid"]!!
+        val request = call.receive<RenameRequest>()
+        call.respondUnitResult(service.renameCollection(uid, request.name))
+    }.describe {
+        summary = "Rename a collection"
+        parameters {
+            path("uid") {
+                description = "The collection uid"
+                required = true
+            }
+        }
+        requestBody {
+            description = "The collection's new name"
+            schema = jsonSchema<RenameRequest>()
+        }
+        responses {
+            HttpStatusCode.NoContent {
+                description = "The collection was renamed"
             }
             HttpStatusCode.BadGateway {
                 description = "The Postman API request failed"

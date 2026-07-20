@@ -4,6 +4,7 @@ import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -83,5 +84,24 @@ class CollectionRoutesTest {
 
         assertEquals(HttpStatusCode.NoContent, response.status)
         assertEquals("col-1-uid", fake.lastDeletedCollectionUid)
+    }
+
+    @Test
+    fun `PATCH api-collections-uid renames the collection and returns 204`() = testApplication {
+        val fake = FakePostmanApiService()
+        application {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+            routing { collectionRoutes(fake) }
+        }
+        val client = createClient { install(ClientContentNegotiation) { json(Json { ignoreUnknownKeys = true }) } }
+
+        val response = client.patch("/api/collections/col-1-uid") {
+            contentType(ContentType.Application.Json)
+            setBody(RenameRequest(name = "Renamed API"))
+        }
+
+        assertEquals(HttpStatusCode.NoContent, response.status)
+        assertEquals("col-1-uid", fake.lastRenamedCollectionUid)
+        assertEquals("Renamed API", fake.lastRenamedCollectionName)
     }
 }

@@ -8,6 +8,7 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.openapi.describe
+import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import io.ktor.utils.io.ExperimentalKtorApi
@@ -132,6 +133,32 @@ fun Route.environmentRoutes(service: PostmanApiService) {
         responses {
             HttpStatusCode.NoContent {
                 description = "The environment was deleted"
+            }
+            HttpStatusCode.BadGateway {
+                description = "The Postman API request failed"
+            }
+        }
+    }
+
+    patch("/api/environments/{uid}") {
+        val uid = call.parameters["uid"]!!
+        val request = call.receive<RenameRequest>()
+        call.respondUnitResult(service.renameEnvironment(uid, request.name))
+    }.describe {
+        summary = "Rename an environment"
+        parameters {
+            path("uid") {
+                description = "The environment uid"
+                required = true
+            }
+        }
+        requestBody {
+            description = "The environment's new name"
+            schema = jsonSchema<RenameRequest>()
+        }
+        responses {
+            HttpStatusCode.NoContent {
+                description = "The environment was renamed"
             }
             HttpStatusCode.BadGateway {
                 description = "The Postman API request failed"
