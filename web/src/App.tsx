@@ -10,6 +10,7 @@ import {
   getEnvironments,
   getWorkspaces,
   isWriteTool,
+  refreshAllWorkspaces,
   refreshWorkspace,
   sendChatMessage,
   updateEnvironment,
@@ -68,6 +69,7 @@ export default function App() {
   const [chatSessionId, setChatSessionId] = useState<string | null>(null)
   const [chatSending, setChatSending] = useState(false)
   const [refreshingWorkspace, setRefreshingWorkspace] = useState(false)
+  const [refreshingAllWorkspaces, setRefreshingAllWorkspaces] = useState(false)
   const [loadingWorkspaceData, setLoadingWorkspaceData] = useState(false)
 
   useEffect(() => {
@@ -90,7 +92,7 @@ export default function App() {
     try {
       try {
         const cols = await getCollections(workspaceId)
-        setCollections(cols)
+        setCollections([...cols].sort((a, b) => a.name.localeCompare(b.name)))
         const results = await Promise.all(
           cols.map(async (c) => {
             try {
@@ -106,7 +108,7 @@ export default function App() {
       }
 
       try {
-        setEnvironments(await getEnvironments(workspaceId))
+        setEnvironments((await getEnvironments(workspaceId)).sort((a, b) => a.name.localeCompare(b.name)))
       } catch (e) {
         setStatusMessage(`Error: ${(e as Error).message}`)
       }
@@ -219,7 +221,7 @@ export default function App() {
     if (!selectedWorkspaceId) return
     try {
       const env = await createEnvironment(selectedWorkspaceId, name)
-      setEnvironments((prev) => [...prev, env])
+      setEnvironments((prev) => [...prev, env].sort((a, b) => a.name.localeCompare(b.name)))
       setCreateDialogOpen(false)
     } catch (e) {
       setStatusMessage(`Error: ${(e as Error).message}`)
@@ -294,6 +296,33 @@ export default function App() {
     }
   }
 
+  const handleRefreshWorkspace = async () => {
+    if (!selectedWorkspaceId) return
+    setRefreshingWorkspace(true)
+    try {
+      await refreshWorkspace(selectedWorkspaceId)
+      await loadWorkspaceData(selectedWorkspaceId)
+    } catch (e) {
+      setStatusMessage(`Error: ${(e as Error).message}`)
+    } finally {
+      setRefreshingWorkspace(false)
+    }
+  }
+
+  const handleRefreshAllWorkspaces = async () => {
+    setRefreshingAllWorkspaces(true)
+    try {
+      await refreshAllWorkspaces()
+      const ws = await getWorkspaces()
+      setWorkspaces(ws)
+      if (selectedWorkspaceId) await loadWorkspaceData(selectedWorkspaceId)
+    } catch (e) {
+      setStatusMessage(`Error: ${(e as Error).message}`)
+    } finally {
+      setRefreshingAllWorkspaces(false)
+    }
+  }
+
   const handleLeftResize = (deltaX: number) => {
     setColumnWidths((prev) => {
       const maxLeftWidth = window.innerWidth - prev.rightWidth - MIN_COLUMN_WIDTH
@@ -322,9 +351,21 @@ export default function App() {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 1 }}>
         <WorkspaceSelector workspaces={workspaces} selectedId={selectedWorkspaceId} onSelect={setSelectedWorkspaceId} />
         <TabBar active={activeTab} onChange={setActiveTab} />
+        <Button
+          variant="outlined"
+          size="small"
+          disabled={!selectedWorkspaceId || refreshingWorkspace}
+          onClick={handleRefreshWorkspace}
+        >
+          Refresh
+        </Button>
+        <Button variant="outlined" size="small" disabled={refreshingAllWorkspaces} onClick={handleRefreshAllWorkspaces}>
+          Refresh All
+        </Button>
       </Box>
       {statusMessage && <Typography color="error">{statusMessage}</Typography>}
       {refreshingWorkspace && <Typography color="text.secondary">Refreshing workspace…</Typography>}
+      {refreshingAllWorkspaces && <Typography color="text.secondary">Refreshing all workspaces…</Typography>}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Box sx={{ width: `${leftWidth}px`, flexShrink: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <Box

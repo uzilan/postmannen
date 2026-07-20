@@ -42,6 +42,11 @@ export async function refreshWorkspace(workspaceId: string): Promise<void> {
   if (!response.ok) throw new Error(`refreshWorkspace failed: ${response.status}`)
 }
 
+export async function refreshAllWorkspaces(): Promise<void> {
+  const response = await fetch(`${BASE_URL}/workspaces/refresh`, { method: 'POST' })
+  if (!response.ok) throw new Error(`refreshAllWorkspaces failed: ${response.status}`)
+}
+
 export async function getCollectionDetail(uid: string): Promise<CollectionDetail> {
   const response = await fetch(`${BASE_URL}/collections/${uid}`)
   if (!response.ok) throw new Error(`getCollectionDetail failed: ${response.status}`)
