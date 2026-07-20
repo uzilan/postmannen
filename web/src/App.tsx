@@ -258,6 +258,7 @@ export default function App() {
                       key={c.uid}
                       detail={detail}
                       onSelectVariables={(variables) => setDetailContent({ kind: 'collectionVariables', variables })}
+                      onSelectRequest={(item) => setDetailContent({ kind: 'request', item })}
                     />
                   ) : null
                 })}
