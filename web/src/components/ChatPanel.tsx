@@ -26,7 +26,19 @@ export function ChatPanel(props: {
             {toolsExpanded ? 'Hide' : 'Show'} available tools ({tools.length})
           </Button>
           <Collapse in={toolsExpanded} unmountOnExit>
-            <Box sx={{ maxHeight: 200, overflow: 'auto', display: 'flex', flexWrap: 'wrap', gap: 0.5, p: 1 }}>
+            <Box
+              sx={{
+                maxHeight: 200,
+                overflow: 'auto',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 0.5,
+                p: 1,
+                border: 1,
+                borderColor: 'divider',
+                borderRadius: 1,
+              }}
+            >
               {tools.map((tool) => (
                 <Tooltip key={tool.name} title={tool.description}>
                   <Chip label={tool.name} size="small" />
