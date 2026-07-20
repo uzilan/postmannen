@@ -294,6 +294,21 @@ export function DetailPanel(props: {
 
   return (
     <>
+      <TextField
+        size="small"
+        placeholder="new key"
+        value={newKey}
+        onChange={(e) => setNewKey(e.target.value)}
+      />
+      <Button
+        onClick={() => {
+          if (!newKey.trim()) return
+          onAddKey(newKey)
+          setNewKey('')
+        }}
+      >
+        Add key
+      </Button>
       <Table sx={{ tableLayout: 'fixed' }}>
         <TableHead>
           <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
@@ -360,21 +375,6 @@ export function DetailPanel(props: {
           ))}
         </TableBody>
       </Table>
-      <TextField
-        size="small"
-        placeholder="new key"
-        value={newKey}
-        onChange={(e) => setNewKey(e.target.value)}
-      />
-      <Button
-        onClick={() => {
-          if (!newKey.trim()) return
-          onAddKey(newKey)
-          setNewKey('')
-        }}
-      >
-        Add key
-      </Button>
     </>
   )
 }
