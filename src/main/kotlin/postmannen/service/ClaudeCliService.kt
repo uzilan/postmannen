@@ -42,9 +42,10 @@ class ClaudeCliServiceImpl(private val postmanApiKey: String) : ClaudeCliService
                     "--mcp-config", configFile.absolutePath,
                     "--allowedTools", "mcp__postman",
                     "--append-system-prompt",
-                    "Give short, concise answers. Report only the final outcome of the " +
-                        "action taken — do not narrate intermediate steps like looking " +
-                        "something up, fetching it, or finding it."
+                    "Reply in ONE short sentence stating only the final result. " +
+                        "Never mention lookups, searches, fetches, ids, or any other " +
+                        "intermediate step, even in passing. Example: user asks to set " +
+                        "a value, you reply exactly like \"ggg = lll in test3.\" — nothing more."
                 )
                 resumeSessionId?.let { command += listOf("--resume", it) }
 
