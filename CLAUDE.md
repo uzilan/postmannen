@@ -10,10 +10,10 @@ Postman's public REST API (`https://api.getpostman.com`). It was
 originally a Lanterna terminal UI; that TUI has been replaced by this
 REST+React stack (see `docs/superpowers/specs/2026-07-19-rest-api-react-migration-design.md`
 for the rationale — accumulating Lanterna widget-level workarounds, not
-a fundamental problem with the app's navigation needs). Chat (the old
-`ChatPanel`/`ClaudeCliSessionImpl` Claude-CLI integration) is not yet
-ported — it's deferred to a follow-up spec, along with any server-side
-session/context state a chat re-port would need.
+a fundamental problem with the app's navigation needs). Chat (the
+third UI panel, backed by `ChatRoutes.kt` + `ClaudeCliService`) has
+since been ported — see the Chat subsection under Backend/Frontend
+architecture below.
 
 ## Repo layout
 
@@ -46,7 +46,7 @@ Backend:
 ./gradlew build              # compile + run all tests
 ./gradlew test                                          # unit tests only
 ./gradlew test --tests "postmannen.server.EnvironmentRoutesTest"  # one class
-POSTMAN_API_KEY=... ./gradlew runServer      # run the REST API on :8080
+POSTMAN_API_KEY=... ./gradlew run      # run the REST API on :8080
 ./gradlew shadowJar           # build the fat jar (build/libs/postmannen.jar)
 java -jar build/libs/postmannen.jar   # run the fat jar directly (once mainClass points at ServerMainKt)
 ```
@@ -104,6 +104,29 @@ No compare-specific endpoint exists — the client fires parallel
 (same per-item-resilient pattern the old `AppViewModel.refreshEnvironmentPanel`
 used: one failing environment doesn't blank the others).
 
+**Chat (`ChatRoutes.kt` / `ClaudeCliService.kt`)** — `POST /api/chat`
+shells out to the `claude` CLI (`ClaudeCliServiceImpl`, non-interactive
+`-p` mode, `--output-format stream-json`, optional `--resume
+<sessionId>` to continue a turn). Two things keep the chat's context
+scoped to Postman data only, not this repo:
+- The subprocess's cwd is an isolated temp dir (`ensureWorkDir()`),
+  never the repo root — so it can't auto-load this project's
+  `CLAUDE.md` or see `git log`/branch state.
+- `--allowedTools mcp__postman` restricts the CLI to the Postman MCP
+  server (`ensureMcpConfig()` spawns `npx @postman/postman-mcp-server`
+  with `POSTMAN_API_KEY`) — no Bash/Read/Grep on the local filesystem.
+  There used to be a `--permission-mode bypassPermissions` flag
+  instead; that granted full tool access and was the cause of chat
+  responses leaking repo/branch/commit context. Don't reintroduce
+  `bypassPermissions` without re-adding an equivalent `--allowedTools`
+  scope.
+
+`ChatRoutes.kt`'s `buildPrompt` prepends only `workspaceName`/
+`workspaceId`/`highlightedLabel` (from `ChatContextDto`) to the user's
+prompt — no collection/environment bodies. The frontend sends this via
+`sendChatMessage` in `api.ts`, built from the currently-selected
+workspace and detail-panel selection in `App.tsx`'s `handleSendChat`.
+
 ### Frontend (`web/`)
 
 - **`api.ts`** is the single fetch-wrapper module — every component
@@ -152,9 +175,10 @@ used: one failing environment doesn't blank the others).
   panel until a new selection is made.
 - **No server-side session/UI state** — collapsed-tree-ids,
   highlighted/marked environment ids all live in React component state.
-  This was a deliberate scope decision (see the migration spec) so a
-  future chat feature's context-passing needs don't get guessed at
-  before that feature is speced.
+  This was a deliberate scope decision (see the migration spec); chat's
+  context-passing (`workspaceName`/`workspaceId`/`highlightedLabel`)
+  reads straight from that same client-side state per turn rather than
+  server-tracked session state.
 
 ### Toolchain gotchas discovered building this
 
@@ -184,9 +208,7 @@ used: one failing environment doesn't blank the others).
   lets the Vite dev server on its own port talk to the Ktor server on
   `:8080` without CORS — if `/api` calls 502 with an *empty* body (not
   a JSON `{"error": ...}` one), that's Vite's proxy failing to reach
-  the backend at all (backend not running, or started via `./gradlew run`
-  instead of `./gradlew runServer` and therefore still the old TUI, if
-  it still exists at all), not a route-level failure.
+  the backend at all (backend not running), not a route-level failure.
 
 ## API integration notes
 

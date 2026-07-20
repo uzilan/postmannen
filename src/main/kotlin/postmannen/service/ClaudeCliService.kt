@@ -24,6 +24,7 @@ interface ClaudeCliService {
 class ClaudeCliServiceImpl(private val postmanApiKey: String) : ClaudeCliService {
 
     @Volatile private var mcpConfigFile: File? = null
+    @Volatile private var workDir: File? = null
 
     override suspend fun sendMessage(prompt: String, resumeSessionId: String?): ChatTurnResult =
         withContext(Dispatchers.IO) {
@@ -39,11 +40,11 @@ class ClaudeCliServiceImpl(private val postmanApiKey: String) : ClaudeCliService
                     "--output-format", "stream-json",
                     "--verbose",
                     "--mcp-config", configFile.absolutePath,
-                    "--permission-mode", "bypassPermissions"
+                    "--allowedTools", "mcp__postman"
                 )
                 resumeSessionId?.let { command += listOf("--resume", it) }
 
-                val process = ProcessBuilder(command).redirectErrorStream(true).start()
+                val process = ProcessBuilder(command).directory(ensureWorkDir()).redirectErrorStream(true).start()
                 process.outputStream.close()
 
                 val output = StringBuilder()
@@ -83,6 +84,14 @@ class ClaudeCliServiceImpl(private val postmanApiKey: String) : ClaudeCliService
 
             ChatTurnResult(text = textBuilder.toString(), toolsUsed = toolsUsed, errored = errored, sessionId = newSessionId)
         }
+
+    private fun ensureWorkDir(): File {
+        workDir?.let { return it }
+        val dir = kotlin.io.path.createTempDirectory("postmannen-chat-").toFile()
+        dir.deleteOnExit()
+        workDir = dir
+        return dir
+    }
 
     private fun ensureMcpConfig(): File {
         mcpConfigFile?.let { return it }
