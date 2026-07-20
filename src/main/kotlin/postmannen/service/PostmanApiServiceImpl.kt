@@ -18,6 +18,9 @@ import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import postmannen.model.Collection
 import postmannen.model.CollectionDetail
 import postmannen.model.CollectionNode
@@ -146,6 +149,24 @@ class PostmanApiServiceImpl(
 
     override suspend fun deleteEnvironment(uid: String): Result<Unit> = runCatching {
         client.delete { url { appendPathSegments("environments", uid) } }
+    }
+
+    override suspend fun renameCollection(uid: String, name: String): Result<Unit> = runCatching {
+        val response: JsonObject = client.get { url { appendPathSegments("collections", uid) } }.body()
+        val collection = response.getValue("collection").jsonObject
+        val info = collection.getValue("info").jsonObject
+        val updatedInfo = JsonObject(info + ("name" to JsonPrimitive(name)))
+        val updatedCollection = JsonObject(collection + ("info" to updatedInfo))
+        client.put {
+            url { appendPathSegments("collections", uid) }
+            contentType(ContentType.Application.Json)
+            setBody(JsonObject(mapOf("collection" to updatedCollection)))
+        }
+    }
+
+    override suspend fun renameEnvironment(uid: String, name: String): Result<Unit> = runCatching {
+        val detail = getEnvironmentDetail(uid).getOrThrow()
+        updateEnvironment(detail.copy(name = name)).getOrThrow()
     }
 
     companion object {

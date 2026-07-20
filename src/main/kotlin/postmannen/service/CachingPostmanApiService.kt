@@ -69,6 +69,26 @@ class CachingPostmanApiService(private val delegate: PostmanApiService) : Postma
             environmentDetailCache.remove(uid)
         }
 
+    override suspend fun renameCollection(uid: String, name: String): Result<Unit> =
+        delegate.renameCollection(uid, name).onSuccess {
+            for (workspaceId in collectionsCache.keys) {
+                collectionsCache[workspaceId]?.let { cols ->
+                    collectionsCache[workspaceId] = cols.map { if (it.uid == uid) it.copy(name = name) else it }
+                }
+            }
+            collectionDetailCache[uid]?.let { collectionDetailCache[uid] = it.copy(name = name) }
+        }
+
+    override suspend fun renameEnvironment(uid: String, name: String): Result<Unit> =
+        delegate.renameEnvironment(uid, name).onSuccess {
+            for (workspaceId in environmentsCache.keys) {
+                environmentsCache[workspaceId]?.let { envs ->
+                    environmentsCache[workspaceId] = envs.map { if (it.uid == uid) it.copy(name = name) else it }
+                }
+            }
+            environmentDetailCache[uid]?.let { environmentDetailCache[uid] = it.copy(name = name) }
+        }
+
     override fun invalidateWorkspace(workspaceId: String) {
         val collectionUids = collectionsCache.remove(workspaceId)?.map { it.uid } ?: emptyList()
         val environmentUids = environmentsCache.remove(workspaceId)?.map { it.uid } ?: emptyList()

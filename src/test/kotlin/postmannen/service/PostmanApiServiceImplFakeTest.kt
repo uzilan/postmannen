@@ -37,4 +37,26 @@ class PostmanApiServiceImplFakeTest {
 
         assertTrue(result.isFailure)
     }
+
+    @Test
+    fun `renameCollection records the requested uid and name and returns the fixture result`() = runTest {
+        val fake = FakePostmanApiService()
+
+        val result = fake.renameCollection("col-1-uid", "Renamed API")
+
+        assertEquals("col-1-uid", fake.lastRenamedCollectionUid)
+        assertEquals("Renamed API", fake.lastRenamedCollectionName)
+        assertEquals(Unit, result.getOrThrow())
+    }
+
+    @Test
+    fun `renameEnvironment records the requested uid and name and returns the fixture result`() = runTest {
+        val fake = FakePostmanApiService()
+
+        val result = fake.renameEnvironment("env-1-uid", "Renamed Env")
+
+        assertEquals("env-1-uid", fake.lastRenamedEnvironmentUid)
+        assertEquals("Renamed Env", fake.lastRenamedEnvironmentName)
+        assertEquals(Unit, result.getOrThrow())
+    }
 }

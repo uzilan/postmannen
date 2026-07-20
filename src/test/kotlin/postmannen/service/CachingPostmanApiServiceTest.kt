@@ -33,6 +33,12 @@ private class CountingPostmanApiService(private val delegate: PostmanApiService)
     override suspend fun deleteCollection(uid: String) = delegate.deleteCollection(uid).also { deleteCollectionCalls.add(uid) }
     val deleteEnvironmentCalls = mutableListOf<String>()
     override suspend fun deleteEnvironment(uid: String) = delegate.deleteEnvironment(uid).also { deleteEnvironmentCalls.add(uid) }
+    val renameCollectionCalls = mutableListOf<Pair<String, String>>()
+    override suspend fun renameCollection(uid: String, name: String) =
+        delegate.renameCollection(uid, name).also { renameCollectionCalls.add(uid to name) }
+    val renameEnvironmentCalls = mutableListOf<Pair<String, String>>()
+    override suspend fun renameEnvironment(uid: String, name: String) =
+        delegate.renameEnvironment(uid, name).also { renameEnvironmentCalls.add(uid to name) }
 }
 
 class CachingPostmanApiServiceTest {
@@ -198,5 +204,39 @@ class CachingPostmanApiServiceTest {
         assertEquals(listOf(FakePostmanApiService.FIXTURE_ENVIRONMENTS[1]), environments.getOrThrow())
         assertEquals(listOf("ws-1"), counting.getEnvironmentsCalls)
         assertEquals(listOf("env-1-uid", "env-1-uid"), counting.getEnvironmentDetailCalls)
+    }
+
+    @Test
+    fun `renameCollection patches the cached workspace list and detail cache without hitting the delegate again`() = runTest {
+        val counting = CountingPostmanApiService(FakePostmanApiService())
+        val cache = CachingPostmanApiService(counting)
+        cache.getCollections("ws-1")
+        cache.getCollectionDetail("col-1-uid")
+
+        cache.renameCollection("col-1-uid", "Renamed")
+        val collections = cache.getCollections("ws-1")
+        val detail = cache.getCollectionDetail("col-1-uid")
+
+        assertEquals("Renamed", collections.getOrThrow().single { it.uid == "col-1-uid" }.name)
+        assertEquals("Renamed", detail.getOrThrow().name)
+        assertEquals(listOf("ws-1"), counting.getCollectionsCalls)
+        assertEquals(listOf("col-1-uid"), counting.getCollectionDetailCalls)
+    }
+
+    @Test
+    fun `renameEnvironment patches the cached workspace list and detail cache without hitting the delegate again`() = runTest {
+        val counting = CountingPostmanApiService(FakePostmanApiService())
+        val cache = CachingPostmanApiService(counting)
+        cache.getEnvironments("ws-1")
+        cache.getEnvironmentDetail("env-1-uid")
+
+        cache.renameEnvironment("env-1-uid", "Renamed")
+        val environments = cache.getEnvironments("ws-1")
+        val detail = cache.getEnvironmentDetail("env-1-uid")
+
+        assertEquals("Renamed", environments.getOrThrow().single { it.uid == "env-1-uid" }.name)
+        assertEquals("Renamed", detail.getOrThrow().name)
+        assertEquals(listOf("ws-1"), counting.getEnvironmentsCalls)
+        assertEquals(listOf("env-1-uid"), counting.getEnvironmentDetailCalls)
     }
 }

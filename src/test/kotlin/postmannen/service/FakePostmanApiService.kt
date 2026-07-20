@@ -36,6 +36,12 @@ class FakePostmanApiService : PostmanApiService {
     var lastDeletedCollectionUid: String? = null
     var deleteEnvironmentResult: Result<Unit> = Result.success(Unit)
     var lastDeletedEnvironmentUid: String? = null
+    var renameCollectionResult: Result<Unit> = Result.success(Unit)
+    var lastRenamedCollectionUid: String? = null
+    var lastRenamedCollectionName: String? = null
+    var renameEnvironmentResult: Result<Unit> = Result.success(Unit)
+    var lastRenamedEnvironmentUid: String? = null
+    var lastRenamedEnvironmentName: String? = null
     val invalidateWorkspaceCalls: MutableList<String> = mutableListOf()
     var invalidateAllCallCount: Int = 0
 
@@ -84,6 +90,18 @@ class FakePostmanApiService : PostmanApiService {
     override suspend fun deleteEnvironment(uid: String): Result<Unit> {
         lastDeletedEnvironmentUid = uid
         return deleteEnvironmentResult
+    }
+
+    override suspend fun renameCollection(uid: String, name: String): Result<Unit> {
+        lastRenamedCollectionUid = uid
+        lastRenamedCollectionName = name
+        return renameCollectionResult
+    }
+
+    override suspend fun renameEnvironment(uid: String, name: String): Result<Unit> {
+        lastRenamedEnvironmentUid = uid
+        lastRenamedEnvironmentName = name
+        return renameEnvironmentResult
     }
 
     override fun invalidateWorkspace(workspaceId: String) {

@@ -2,13 +2,20 @@ package postmannen.service
 
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.toByteArray
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class PostmanApiServiceImplMappingTest {
 
@@ -84,5 +91,78 @@ class PostmanApiServiceImplMappingTest {
 
         val item = result.getOrThrow().items.single() as postmannen.model.CollectionNode.RequestItem
         assertNull(item.body)
+    }
+
+    @Test
+    fun `renameCollection patches only info-name and leaves every other field byte-for-byte untouched`() = runTest {
+        val getJson = """
+            {
+              "collection": {
+                "info": { "name": "Old Name", "_postman_id": "abc123" },
+                "item": [{ "id": "item-1", "name": "Login" }],
+                "variable": []
+              }
+            }
+        """.trimIndent()
+        var putBody: String? = null
+        var putPath: String? = null
+        val engine = MockEngine { request ->
+            when (request.method) {
+                HttpMethod.Get ->
+                    respond(getJson, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                HttpMethod.Put -> {
+                    putPath = request.url.encodedPath
+                    putBody = request.body.toByteArray().decodeToString()
+                    respond("", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                }
+                else -> error("unexpected method ${request.method}")
+            }
+        }
+        val service = PostmanApiServiceImpl(apiKey = "fake-key", engine = engine)
+
+        val result = service.renameCollection("col-1-uid", "New Name")
+
+        assertTrue(result.isSuccess)
+        assertEquals("/collections/col-1-uid", putPath)
+        val sentCollection = Json.parseToJsonElement(putBody!!).jsonObject.getValue("collection").jsonObject
+        val sentInfo = sentCollection.getValue("info").jsonObject
+        assertEquals("New Name", sentInfo.getValue("name").jsonPrimitive.content)
+        assertEquals("abc123", sentInfo.getValue("_postman_id").jsonPrimitive.content)
+        assertEquals(1, (sentCollection.getValue("item") as JsonArray).size)
+    }
+
+    @Test
+    fun `renameEnvironment sends the fetched values unchanged with only the name replaced`() = runTest {
+        val getJson = """
+            {
+              "environment": {
+                "id": "env-1",
+                "name": "Old Env Name",
+                "values": [{"key": "BASE_URL", "value": "https://x", "enabled": true, "type": "default"}]
+              }
+            }
+        """.trimIndent()
+        var putBody: String? = null
+        val engine = MockEngine { request ->
+            when (request.method) {
+                HttpMethod.Get ->
+                    respond(getJson, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                HttpMethod.Put -> {
+                    putBody = request.body.toByteArray().decodeToString()
+                    respond("", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                }
+                else -> error("unexpected method ${request.method}")
+            }
+        }
+        val service = PostmanApiServiceImpl(apiKey = "fake-key", engine = engine)
+
+        val result = service.renameEnvironment("env-1-uid", "New Env Name")
+
+        assertTrue(result.isSuccess)
+        val sentEnvironment = Json.parseToJsonElement(putBody!!).jsonObject.getValue("environment").jsonObject
+        assertEquals("New Env Name", sentEnvironment.getValue("name").jsonPrimitive.content)
+        val sentValues = sentEnvironment.getValue("values") as JsonArray
+        assertEquals(1, sentValues.size)
+        assertEquals("BASE_URL", sentValues[0].jsonObject.getValue("key").jsonPrimitive.content)
     }
 }
