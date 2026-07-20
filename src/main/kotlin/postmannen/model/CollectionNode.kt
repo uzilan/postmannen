@@ -13,5 +13,14 @@ sealed class CollectionNode {
 
     @Serializable
     @SerialName("item")
-    data class RequestItem(override val name: String) : CollectionNode()
+    data class RequestItem(
+        override val name: String,
+        val method: String,
+        val url: String,
+        val headers: List<RequestHeader>,
+        val body: String?
+    ) : CollectionNode()
 }
+
+@Serializable
+data class RequestHeader(val key: String, val value: String)

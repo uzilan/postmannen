@@ -32,6 +32,7 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
     testImplementation("io.ktor:ktor-server-test-host:3.1.0")
     testImplementation("io.ktor:ktor-client-content-negotiation:3.1.0")
+    testImplementation("io.ktor:ktor-client-mock:3.1.0")
 }
 
 application {

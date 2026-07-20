@@ -7,6 +7,7 @@ import postmannen.model.CollectionVariable
 import postmannen.model.Environment
 import postmannen.model.EnvironmentDetail
 import postmannen.model.EnvironmentValue
+import postmannen.model.RequestHeader
 import postmannen.model.Workspace
 
 class FakePostmanApiService : PostmanApiService {
@@ -80,9 +81,30 @@ class FakePostmanApiService : PostmanApiService {
             items = listOf(
                 CollectionNode.Folder(
                     "Users",
-                    listOf(CollectionNode.RequestItem("Login"), CollectionNode.RequestItem("Signup"))
+                    listOf(
+                        CollectionNode.RequestItem(
+                            name = "Login",
+                            method = "POST",
+                            url = "https://auth.example.com/login",
+                            headers = listOf(RequestHeader("Content-Type", "application/json")),
+                            body = "{\"user\":\"x\"}"
+                        ),
+                        CollectionNode.RequestItem(
+                            name = "Signup",
+                            method = "POST",
+                            url = "https://auth.example.com/signup",
+                            headers = emptyList(),
+                            body = null
+                        )
+                    )
                 ),
-                CollectionNode.RequestItem("Health Check")
+                CollectionNode.RequestItem(
+                    name = "Health Check",
+                    method = "GET",
+                    url = "https://auth.example.com/health",
+                    headers = emptyList(),
+                    body = null
+                )
             ),
             variables = listOf(
                 CollectionVariable(key = "base_url", value = "https://auth.example.com", enabled = true),
@@ -92,7 +114,15 @@ class FakePostmanApiService : PostmanApiService {
         val FIXTURE_COLLECTION_DETAIL_BILLING = CollectionDetail(
             uid = "col-2-uid",
             name = "Billing API",
-            items = listOf(CollectionNode.RequestItem("List Invoices")),
+            items = listOf(
+                CollectionNode.RequestItem(
+                    name = "List Invoices",
+                    method = "GET",
+                    url = "https://billing.example.com/invoices",
+                    headers = emptyList(),
+                    body = null
+                )
+            ),
             variables = emptyList()
         )
         val FIXTURE_ENVIRONMENTS = listOf(

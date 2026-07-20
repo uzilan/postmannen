@@ -2,6 +2,7 @@ package postmannen.service
 
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
@@ -23,11 +24,15 @@ import postmannen.model.CollectionVariable
 import postmannen.model.Environment
 import postmannen.model.EnvironmentDetail
 import postmannen.model.EnvironmentValue
+import postmannen.model.RequestHeader
 import postmannen.model.Workspace
 
-class PostmanApiServiceImpl(private val apiKey: String) : PostmanApiService {
+class PostmanApiServiceImpl(
+    private val apiKey: String,
+    engine: HttpClientEngine = CIO.create()
+) : PostmanApiService {
 
-    private val client = HttpClient(CIO) {
+    private val client = HttpClient(engine) {
         expectSuccess = true
         install(ContentNegotiation) {
             json(Json { ignoreUnknownKeys = true })
@@ -182,8 +187,39 @@ private data class CollectionInfoDto(val name: String)
 private data class CollectionVariableDto(val key: String, val value: String = "", val enabled: Boolean = true)
 
 @Serializable
-private data class CollectionItemDto(val name: String, val item: List<CollectionItemDto>? = null)
+private data class CollectionItemDto(
+    val name: String,
+    val item: List<CollectionItemDto>? = null,
+    val request: CollectionRequestDto? = null
+)
+
+@Serializable
+private data class CollectionRequestDto(
+    val method: String = "GET",
+    val header: List<CollectionRequestHeaderDto> = emptyList(),
+    val url: CollectionRequestUrlDto? = null,
+    val body: CollectionRequestBodyDto? = null
+)
+
+@Serializable
+private data class CollectionRequestHeaderDto(val key: String, val value: String = "")
+
+@Serializable
+private data class CollectionRequestUrlDto(val raw: String = "")
+
+@Serializable
+private data class CollectionRequestBodyDto(val mode: String? = null, val raw: String? = null)
 
 private fun CollectionItemDto.toNode(): CollectionNode =
-    if (item != null) CollectionNode.Folder(name, item.map { it.toNode() })
-    else CollectionNode.RequestItem(name)
+    if (item != null) {
+        CollectionNode.Folder(name, item.map { it.toNode() })
+    } else {
+        val req = request
+        CollectionNode.RequestItem(
+            name = name,
+            method = req?.method ?: "GET",
+            url = req?.url?.raw ?: "",
+            headers = req?.header?.map { RequestHeader(it.key, it.value) } ?: emptyList(),
+            body = req?.body?.takeIf { it.mode == "raw" }?.raw
+        )
+    }
