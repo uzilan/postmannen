@@ -48,20 +48,20 @@ describe('collectNodeIds', () => {
 
 describe('CollectionTree', () => {
   it('starts fully collapsed, showing only the collection name', () => {
-    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} />)
+    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} />)
     expect(screen.getByText('Auth API')).toBeInTheDocument()
     expect(screen.queryByText('Users')).not.toBeInTheDocument()
   })
 
   it('expands the collection on click, revealing its top-level folders/items still collapsed', () => {
-    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} />)
+    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} />)
     fireEvent.click(screen.getByText('Auth API'))
     expect(screen.getByText('Users')).toBeInTheDocument()
     expect(screen.queryByText('Login')).not.toBeInTheDocument()
   })
 
   it('expands a nested folder on click, revealing its children', () => {
-    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} />)
+    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} />)
     fireEvent.click(screen.getByText('Auth API'))
     fireEvent.click(screen.getByText('Users'))
     expect(screen.getByText('Login')).toBeInTheDocument()
@@ -70,14 +70,14 @@ describe('CollectionTree', () => {
 
   it('calls onSelectVariables with the collection variables when the collection row is clicked', () => {
     const onSelectVariables = vi.fn()
-    render(<CollectionTree detail={detail} onSelectVariables={onSelectVariables} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} />)
+    render(<CollectionTree detail={detail} onSelectVariables={onSelectVariables} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} />)
     fireEvent.click(screen.getByText('Auth API'))
     expect(onSelectVariables).toHaveBeenCalledWith(detail.variables)
   })
 
   it('calls onSelectRequest with the item node when a request row is clicked', () => {
     const onSelectRequest = vi.fn()
-    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={onSelectRequest} onDeleteCollection={vi.fn()} />)
+    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={onSelectRequest} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} />)
     fireEvent.click(screen.getByText('Auth API'))
     fireEvent.click(screen.getByText('Health Check'))
     expect(onSelectRequest).toHaveBeenCalledWith(healthCheckItem)
@@ -85,7 +85,7 @@ describe('CollectionTree', () => {
 
   it('renders expanded by default when defaultExpanded is true', () => {
     render(
-      <CollectionTree detail={detail} defaultExpanded onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} />
+      <CollectionTree detail={detail} defaultExpanded onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} />
     )
     expect(screen.getByText('Users')).toBeInTheDocument()
   })
@@ -98,6 +98,7 @@ describe('CollectionTree', () => {
         onSelectVariables={vi.fn()}
         onSelectRequest={vi.fn()}
         onDeleteCollection={onDeleteCollection}
+        onRenameCollection={vi.fn()}
       />
     )
 
@@ -114,10 +115,87 @@ describe('CollectionTree', () => {
         onSelectVariables={onSelectVariables}
         onSelectRequest={vi.fn()}
         onDeleteCollection={vi.fn()}
+        onRenameCollection={vi.fn()}
       />
     )
 
     fireEvent.click(screen.getByLabelText('Delete collection'))
+
+    expect(onSelectVariables).not.toHaveBeenCalled()
+    expect(screen.queryByText('Users')).not.toBeInTheDocument()
+  })
+
+  it('shows an inline text field pre-filled with the current name when the rename icon is clicked', () => {
+    render(
+      <CollectionTree
+        detail={detail}
+        onSelectVariables={vi.fn()}
+        onSelectRequest={vi.fn()}
+        onDeleteCollection={vi.fn()}
+        onRenameCollection={vi.fn()}
+      />
+    )
+
+    fireEvent.click(screen.getByLabelText('Rename collection'))
+
+    expect(screen.getByDisplayValue('Auth API')).toBeInTheDocument()
+  })
+
+  it('calls onRenameCollection with the uid and new name on Enter, and exits edit mode', () => {
+    const onRenameCollection = vi.fn()
+    render(
+      <CollectionTree
+        detail={detail}
+        onSelectVariables={vi.fn()}
+        onSelectRequest={vi.fn()}
+        onDeleteCollection={vi.fn()}
+        onRenameCollection={onRenameCollection}
+      />
+    )
+
+    fireEvent.click(screen.getByLabelText('Rename collection'))
+    const input = screen.getByDisplayValue('Auth API')
+    fireEvent.change(input, { target: { value: 'Renamed API' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(onRenameCollection).toHaveBeenCalledWith('col-1-uid', 'Renamed API')
+    expect(screen.queryByDisplayValue('Renamed API')).not.toBeInTheDocument()
+  })
+
+  it('discards the edit and calls nothing on Escape', () => {
+    const onRenameCollection = vi.fn()
+    render(
+      <CollectionTree
+        detail={detail}
+        onSelectVariables={vi.fn()}
+        onSelectRequest={vi.fn()}
+        onDeleteCollection={vi.fn()}
+        onRenameCollection={onRenameCollection}
+      />
+    )
+
+    fireEvent.click(screen.getByLabelText('Rename collection'))
+    const input = screen.getByDisplayValue('Auth API')
+    fireEvent.change(input, { target: { value: 'Discarded' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+
+    expect(onRenameCollection).not.toHaveBeenCalled()
+    expect(screen.getByText('Auth API')).toBeInTheDocument()
+  })
+
+  it('does not toggle or select variables when the rename icon is clicked', () => {
+    const onSelectVariables = vi.fn()
+    render(
+      <CollectionTree
+        detail={detail}
+        onSelectVariables={onSelectVariables}
+        onSelectRequest={vi.fn()}
+        onDeleteCollection={vi.fn()}
+        onRenameCollection={vi.fn()}
+      />
+    )
+
+    fireEvent.click(screen.getByLabelText('Rename collection'))
 
     expect(onSelectVariables).not.toHaveBeenCalled()
     expect(screen.queryByText('Users')).not.toBeInTheDocument()

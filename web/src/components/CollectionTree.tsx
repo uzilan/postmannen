@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Box, IconButton, List, ListItemButton, ListItemIcon, ListItemText } from '@mui/material'
+import { Box, IconButton, List, ListItemButton, ListItemIcon, ListItemText, TextField } from '@mui/material'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import type { CollectionDetail, CollectionNode, CollectionVariable } from '../api'
 
@@ -89,11 +90,14 @@ export function CollectionTree(props: {
   onSelectVariables: (variables: CollectionVariable[]) => void
   onSelectRequest: (item: RequestItemNode) => void
   onDeleteCollection: (uid: string, name: string) => void
+  onRenameCollection: (uid: string, name: string) => void
 }) {
-  const { detail, defaultExpanded, onSelectVariables, onSelectRequest, onDeleteCollection } = props
+  const { detail, defaultExpanded, onSelectVariables, onSelectRequest, onDeleteCollection, onRenameCollection } = props
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(
     () => (defaultExpanded ? new Set<string>() : new Set([detail.uid, ...collectNodeIds(detail.uid, detail.items)]))
   )
+  const [isEditing, setIsEditing] = useState(false)
+  const [editValue, setEditValue] = useState(detail.name)
 
   const onToggle = (id: string) => {
     setCollapsedIds((prev) => {
@@ -104,21 +108,64 @@ export function CollectionTree(props: {
     })
   }
 
+  const startEditing = () => {
+    setEditValue(detail.name)
+    setIsEditing(true)
+  }
+
+  const commitEdit = () => {
+    const trimmed = editValue.trim()
+    setIsEditing(false)
+    if (trimmed && trimmed !== detail.name) onRenameCollection(detail.uid, trimmed)
+  }
+
+  const cancelEdit = () => {
+    setIsEditing(false)
+  }
+
   const isCollapsed = collapsedIds.has(detail.uid)
 
   return (
     <List>
       <ListItemButton
         onClick={() => {
+          if (isEditing) return
           onToggle(detail.uid)
           onSelectVariables(detail.variables)
         }}
-        sx={{ '&:hover .delete-collection-button': { opacity: 1 } }}
+        sx={{ '&:hover .delete-collection-button, &:hover .rename-collection-button': { opacity: 1 } }}
       >
         <ListItemIcon sx={{ minWidth: 32 }}>
           {isCollapsed ? <ChevronRightIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
         </ListItemIcon>
-        <ListItemText>{detail.name}</ListItemText>
+        {isEditing ? (
+          <TextField
+            size="small"
+            autoFocus
+            value={editValue}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={commitEdit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitEdit()
+              else if (e.key === 'Escape') cancelEdit()
+            }}
+          />
+        ) : (
+          <ListItemText>{detail.name}</ListItemText>
+        )}
+        <IconButton
+          className="rename-collection-button"
+          aria-label="Rename collection"
+          size="small"
+          sx={{ opacity: 0 }}
+          onClick={(e) => {
+            e.stopPropagation()
+            startEditing()
+          }}
+        >
+          <EditIcon fontSize="small" />
+        </IconButton>
         <IconButton
           className="delete-collection-button"
           aria-label="Delete collection"
