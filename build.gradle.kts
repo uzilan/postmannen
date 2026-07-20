@@ -27,6 +27,7 @@ dependencies {
     implementation("io.ktor:ktor-server-core:3.5.1")
     implementation("io.ktor:ktor-server-cio:3.5.1")
     implementation("io.ktor:ktor-server-content-negotiation:3.5.1")
+    implementation("io.ktor:ktor-server-openapi:3.5.1")
     implementation("io.ktor:ktor-server-routing-openapi:3.5.1")
     implementation("ch.qos.logback:logback-classic:1.5.16")
 

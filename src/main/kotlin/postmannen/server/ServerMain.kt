@@ -5,12 +5,23 @@ import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.openapi.openAPI
+import io.ktor.server.routing.Route
+import io.ktor.server.routing.openapi.OpenApiDocSource
 import io.ktor.server.routing.routing
+import io.ktor.utils.io.ExperimentalKtorApi
 import kotlinx.serialization.json.Json
 import postmannen.service.CachingPostmanApiService
 import postmannen.service.ClaudeCliServiceImpl
 import postmannen.service.PostmanApiServiceImpl
 import kotlin.system.exitProcess
+
+@OptIn(ExperimentalKtorApi::class)
+fun Route.registerOpenApi() {
+    openAPI(path = "openapi") {
+        source = OpenApiDocSource.Routing()
+    }
+}
 
 fun main() {
     val apiKey = System.getenv("POSTMAN_API_KEY")
@@ -29,6 +40,7 @@ fun main() {
             collectionRoutes(service)
             environmentRoutes(service)
             chatRoutes(claudeService)
+            registerOpenApi()
         }
     }.start(wait = true)
 }
