@@ -89,6 +89,11 @@ export async function createCollection(workspaceId: string, name: string): Promi
   return response.json()
 }
 
+export async function deleteCollection(uid: string): Promise<void> {
+  const response = await fetch(`${BASE_URL}/collections/${uid}`, { method: 'DELETE' })
+  if (!response.ok) throw new Error(`deleteCollection failed: ${response.status}`)
+}
+
 export type ChatMessage =
   | { role: 'user'; text: string }
   | { role: 'assistant'; text: string; toolsUsed: string[]; errored: boolean }
