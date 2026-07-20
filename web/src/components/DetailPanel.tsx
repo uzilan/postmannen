@@ -6,6 +6,7 @@ import type { CollectionNode, CollectionVariable, EnvironmentDetail } from '../a
 import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { MethodLabel } from './CollectionTree'
 
 type RequestItemNode = Extract<CollectionNode, { type: 'item' }>
 
@@ -242,7 +243,7 @@ export function DetailPanel(props: {
         <fieldset>
           <legend>Request</legend>
           <Typography>
-            <strong>{item.method}</strong> {item.url}
+            <MethodLabel method={item.method} /> {item.url}
           </Typography>
         </fieldset>
         {item.headers.length > 0 && (

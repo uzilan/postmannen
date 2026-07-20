@@ -18,7 +18,7 @@ const METHOD_COLORS: Record<string, string> = {
   OPTIONS: '#607d8b',
 }
 
-function MethodLabel({ method }: { method: string }) {
+export function MethodLabel({ method }: { method: string }) {
   const color = METHOD_COLORS[method.toUpperCase()] ?? '#9e9e9e'
   return (
     <Box
