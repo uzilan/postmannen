@@ -9,6 +9,7 @@ import {
   getCollections,
   getEnvironmentDetail,
   getEnvironments,
+  getMcpTools,
   getWorkspaces,
   isWriteTool,
   refreshAllWorkspaces,
@@ -18,7 +19,7 @@ import {
   sendChatMessage,
   updateEnvironment,
 } from './api'
-import type { ChatMessage, Collection, CollectionDetail, Environment, EnvironmentDetail, Workspace } from './api'
+import type { ChatMessage, Collection, CollectionDetail, Environment, EnvironmentDetail, McpTool, Workspace } from './api'
 import { WorkspaceSelector } from './components/WorkspaceSelector'
 import { TabBar } from './components/TabBar'
 import type { AppTab } from './components/TabBar'
@@ -72,6 +73,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatSessionId, setChatSessionId] = useState<string | null>(null)
   const [chatSending, setChatSending] = useState(false)
+  const [mcpTools, setMcpTools] = useState<McpTool[]>([])
   const [refreshingWorkspace, setRefreshingWorkspace] = useState(false)
   const [refreshingAllWorkspaces, setRefreshingAllWorkspaces] = useState(false)
   const [loadingWorkspaceData, setLoadingWorkspaceData] = useState(false)
@@ -88,6 +90,12 @@ export default function App() {
         setWorkspaces(ws)
         if (ws.length > 0) setSelectedWorkspaceId(ws[0].id)
       })
+      .catch((e) => setStatusMessage(`Error: ${e.message}`))
+  }, [])
+
+  useEffect(() => {
+    getMcpTools()
+      .then(setMcpTools)
       .catch((e) => setStatusMessage(`Error: ${e.message}`))
   }, [])
 
@@ -535,7 +543,7 @@ export default function App() {
             <Box component="legend" sx={{ px: 1 }}>
               Chat
             </Box>
-            <ChatPanel messages={chatMessages} sending={chatSending} onSend={handleSendChat} />
+            <ChatPanel messages={chatMessages} sending={chatSending} onSend={handleSendChat} tools={mcpTools} />
           </Box>
         </Box>
       </Box>

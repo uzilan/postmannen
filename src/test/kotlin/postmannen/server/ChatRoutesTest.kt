@@ -2,6 +2,7 @@ package postmannen.server
 
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
+import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -13,6 +14,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
+import postmannen.model.McpTool
 import postmannen.service.ChatTurnResult
 import postmannen.service.FakeClaudeCliService
 import kotlin.test.Test
@@ -108,5 +110,49 @@ class ChatRoutesTest {
         assertEquals(true, body.errored)
         assertEquals(listOf("update_environment"), body.toolsUsed)
         assertNull(body.sessionId)
+    }
+
+    @Test
+    fun `GET api-chat-tools returns the service's available tools`() = testApplication {
+        val fake = FakeClaudeCliService().apply {
+            availableToolsResult = Result.success(
+                listOf(
+                    McpTool(name = "getCollections", description = "List collections"),
+                    McpTool(name = "createEnvironment", description = "Create an environment")
+                )
+            )
+        }
+        application {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+            routing { chatRoutes(fake) }
+        }
+        val client = createClient { install(ClientContentNegotiation) { json(Json { ignoreUnknownKeys = true }) } }
+
+        val response = client.get("/api/chat/tools")
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(
+            listOf(
+                McpTool(name = "getCollections", description = "List collections"),
+                McpTool(name = "createEnvironment", description = "Create an environment")
+            ),
+            response.body<List<McpTool>>()
+        )
+    }
+
+    @Test
+    fun `GET api-chat-tools returns 502 when the service fails`() = testApplication {
+        val fake = FakeClaudeCliService().apply {
+            availableToolsResult = Result.failure(IllegalStateException("mcp server unreachable"))
+        }
+        application {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+            routing { chatRoutes(fake) }
+        }
+        val client = createClient { install(ClientContentNegotiation) { json(Json { ignoreUnknownKeys = true }) } }
+
+        val response = client.get("/api/chat/tools")
+
+        assertEquals(HttpStatusCode.BadGateway, response.status)
     }
 }

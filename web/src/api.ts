@@ -153,3 +153,11 @@ export async function sendChatMessage(
   if (!response.ok) throw new Error(`sendChatMessage failed: ${response.status}`)
   return response.json()
 }
+
+export type McpTool = { name: string; description: string }
+
+export async function getMcpTools(): Promise<McpTool[]> {
+  const response = await fetch(`${BASE_URL}/chat/tools`)
+  if (!response.ok) throw new Error(`getMcpTools failed: ${response.status}`)
+  return response.json()
+}

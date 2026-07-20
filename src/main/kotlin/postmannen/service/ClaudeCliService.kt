@@ -7,24 +7,28 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import postmannen.model.McpTool
 import java.io.File
 
 data class ChatTurnResult(val text: String, val toolsUsed: List<String>, val errored: Boolean, val sessionId: String?)
 
 interface ClaudeCliService {
     suspend fun sendMessage(prompt: String, resumeSessionId: String?): ChatTurnResult
+    suspend fun getAvailableTools(): Result<List<McpTool>>
 }
 
 class ClaudeCliServiceImpl(private val postmanApiKey: String) : ClaudeCliService {
 
     @Volatile private var mcpConfigFile: File? = null
     @Volatile private var workDir: File? = null
+    @Volatile private var cachedTools: List<McpTool>? = null
 
     override suspend fun sendMessage(prompt: String, resumeSessionId: String?): ChatTurnResult =
         withContext(Dispatchers.IO) {
@@ -92,6 +96,68 @@ class ClaudeCliServiceImpl(private val postmanApiKey: String) : ClaudeCliService
 
             ChatTurnResult(text = textBuilder.toString(), toolsUsed = toolsUsed, errored = errored, sessionId = newSessionId)
         }
+
+    override suspend fun getAvailableTools(): Result<List<McpTool>> = withContext(Dispatchers.IO) {
+        cachedTools?.let { return@withContext Result.success(it) }
+        runCatching {
+            val processBuilder = ProcessBuilder("npx", "-y", "@postman/postman-mcp-server")
+            processBuilder.environment()["POSTMAN_API_KEY"] = postmanApiKey
+            val process = processBuilder.start()
+            try {
+                val writer = process.outputStream.bufferedWriter()
+                val reader = process.inputStream.bufferedReader()
+
+                fun send(id: Int?, method: String, params: JsonObject) {
+                    val request = buildJsonObject {
+                        put("jsonrpc", "2.0")
+                        if (id != null) put("id", id)
+                        put("method", method)
+                        put("params", params)
+                    }
+                    writer.write(request.toString())
+                    writer.write("\n")
+                    writer.flush()
+                }
+
+                send(
+                    id = 1,
+                    method = "initialize",
+                    params = buildJsonObject {
+                        put("protocolVersion", "2024-11-05")
+                        put("capabilities", buildJsonObject {})
+                        put("clientInfo", buildJsonObject { put("name", "postmannen"); put("version", "1.0") })
+                    }
+                )
+                reader.readLine()
+
+                send(id = null, method = "notifications/initialized", params = buildJsonObject {})
+                send(id = 2, method = "tools/list", params = buildJsonObject {})
+
+                var toolsResponse: JsonObject? = null
+                while (toolsResponse == null) {
+                    val line = reader.readLine() ?: break
+                    if (line.isBlank()) continue
+                    val parsed = runCatching { Json.parseToJsonElement(line).jsonObject }.getOrNull() ?: continue
+                    if (parsed["id"]?.jsonPrimitive?.intOrNull == 2) toolsResponse = parsed
+                }
+
+                val toolsArray = toolsResponse?.get("result")?.jsonObject?.get("tools")?.jsonArray
+                    ?: throw IllegalStateException("postman-mcp-server did not return a tools/list response")
+
+                val tools = toolsArray.map { tool ->
+                    val obj = tool.jsonObject
+                    McpTool(
+                        name = obj["name"]?.jsonPrimitive?.content ?: "unknown",
+                        description = obj["description"]?.jsonPrimitive?.content ?: ""
+                    )
+                }
+                cachedTools = tools
+                tools
+            } finally {
+                process.destroy()
+            }
+        }
+    }
 
     private fun ensureWorkDir(): File {
         workDir?.let { return it }

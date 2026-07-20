@@ -5,10 +5,12 @@ import io.ktor.openapi.jsonSchema
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.get
 import io.ktor.server.routing.openapi.describe
 import io.ktor.server.routing.post
 import io.ktor.utils.io.ExperimentalKtorApi
 import kotlinx.serialization.Serializable
+import postmannen.model.McpTool
 import postmannen.service.ClaudeCliService
 
 @Serializable
@@ -58,6 +60,21 @@ fun Route.chatRoutes(service: ClaudeCliService) {
             HttpStatusCode.OK {
                 description = "The assistant's reply"
                 schema = jsonSchema<ChatResponse>()
+            }
+        }
+    }
+
+    get("/api/chat/tools") {
+        call.respondResult(service.getAvailableTools())
+    }.describe {
+        summary = "List the Postman MCP server's available tools"
+        responses {
+            HttpStatusCode.OK {
+                description = "The available tools"
+                schema = jsonSchema<List<McpTool>>()
+            }
+            HttpStatusCode.BadGateway {
+                description = "Failed to query the Postman MCP server"
             }
         }
     }
