@@ -2,9 +2,11 @@ export type Workspace = { id: string; name: string; type: string }
 
 export type Collection = { id: string; name: string; uid: string }
 
+export type RequestHeader = { key: string; value: string }
+
 export type CollectionNode =
   | { type: 'folder'; name: string; children: CollectionNode[] }
-  | { type: 'item'; name: string }
+  | { type: 'item'; name: string; method: string; url: string; headers: RequestHeader[]; body: string | null }
 
 export type CollectionVariable = { key: string; value: string; enabled: boolean }
 

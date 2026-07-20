@@ -3,12 +3,39 @@ import { describe, expect, it, vi } from 'vitest'
 import { CollectionTree, collectNodeIds } from './CollectionTree'
 import type { CollectionDetail } from '../api'
 
+const loginItem = {
+  type: 'item' as const,
+  name: 'Login',
+  method: 'POST',
+  url: 'https://auth.example.com/login',
+  headers: [{ key: 'Content-Type', value: 'application/json' }],
+  body: '{"user":"x"}',
+}
+
+const signupItem = {
+  type: 'item' as const,
+  name: 'Signup',
+  method: 'POST',
+  url: 'https://auth.example.com/signup',
+  headers: [],
+  body: null,
+}
+
+const healthCheckItem = {
+  type: 'item' as const,
+  name: 'Health Check',
+  method: 'GET',
+  url: 'https://auth.example.com/health',
+  headers: [],
+  body: null,
+}
+
 const detail: CollectionDetail = {
   uid: 'col-1-uid',
   name: 'Auth API',
   items: [
-    { type: 'folder', name: 'Users', children: [{ type: 'item', name: 'Login' }, { type: 'item', name: 'Signup' }] },
-    { type: 'item', name: 'Health Check' },
+    { type: 'folder', name: 'Users', children: [loginItem, signupItem] },
+    healthCheckItem,
   ],
   variables: [{ key: 'base_url', value: 'https://x', enabled: true }],
 }
@@ -21,20 +48,20 @@ describe('collectNodeIds', () => {
 
 describe('CollectionTree', () => {
   it('starts fully collapsed, showing only the collection name', () => {
-    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} />)
+    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} />)
     expect(screen.getByText('Auth API')).toBeInTheDocument()
     expect(screen.queryByText('Users')).not.toBeInTheDocument()
   })
 
   it('expands the collection on click, revealing its top-level folders/items still collapsed', () => {
-    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} />)
+    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} />)
     fireEvent.click(screen.getByText('Auth API'))
     expect(screen.getByText('Users')).toBeInTheDocument()
     expect(screen.queryByText('Login')).not.toBeInTheDocument()
   })
 
   it('expands a nested folder on click, revealing its children', () => {
-    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} />)
+    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} />)
     fireEvent.click(screen.getByText('Auth API'))
     fireEvent.click(screen.getByText('Users'))
     expect(screen.getByText('Login')).toBeInTheDocument()
@@ -43,8 +70,16 @@ describe('CollectionTree', () => {
 
   it('calls onSelectVariables with the collection variables when the collection row is clicked', () => {
     const onSelectVariables = vi.fn()
-    render(<CollectionTree detail={detail} onSelectVariables={onSelectVariables} />)
+    render(<CollectionTree detail={detail} onSelectVariables={onSelectVariables} onSelectRequest={vi.fn()} />)
     fireEvent.click(screen.getByText('Auth API'))
     expect(onSelectVariables).toHaveBeenCalledWith(detail.variables)
+  })
+
+  it('calls onSelectRequest with the item node when a request row is clicked', () => {
+    const onSelectRequest = vi.fn()
+    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={onSelectRequest} />)
+    fireEvent.click(screen.getByText('Auth API'))
+    fireEvent.click(screen.getByText('Health Check'))
+    expect(onSelectRequest).toHaveBeenCalledWith(healthCheckItem)
   })
 })

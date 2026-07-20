@@ -5,6 +5,8 @@ import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import type { CollectionDetail, CollectionNode, CollectionVariable } from '../api'
 
+type RequestItemNode = Extract<CollectionNode, { type: 'item' }>
+
 export function collectNodeIds(parentId: string, nodes: CollectionNode[]): string[] {
   return nodes.flatMap((node, i) => {
     if (node.type !== 'folder') return []
@@ -19,12 +21,13 @@ function TreeNode(props: {
   depth: number
   collapsedIds: Set<string>
   onToggle: (id: string) => void
+  onSelectRequest: (item: RequestItemNode) => void
 }) {
-  const { node, id, depth, collapsedIds, onToggle } = props
+  const { node, id, depth, collapsedIds, onToggle, onSelectRequest } = props
 
   if (node.type === 'item') {
     return (
-      <ListItemButton sx={{ pl: (depth + 1) * 2 + 4 }} disableRipple>
+      <ListItemButton sx={{ pl: (depth + 1) * 2 + 4 }} disableRipple onClick={() => onSelectRequest(node)}>
         <ListItemIcon sx={{ minWidth: 32 }}>
           <DescriptionOutlinedIcon fontSize="small" />
         </ListItemIcon>
@@ -51,6 +54,7 @@ function TreeNode(props: {
             depth={depth + 1}
             collapsedIds={collapsedIds}
             onToggle={onToggle}
+            onSelectRequest={onSelectRequest}
           />
         ))}
     </>
@@ -60,8 +64,9 @@ function TreeNode(props: {
 export function CollectionTree(props: {
   detail: CollectionDetail
   onSelectVariables: (variables: CollectionVariable[]) => void
+  onSelectRequest: (item: RequestItemNode) => void
 }) {
-  const { detail, onSelectVariables } = props
+  const { detail, onSelectVariables, onSelectRequest } = props
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(
     () => new Set([detail.uid, ...collectNodeIds(detail.uid, detail.items)])
   )
@@ -99,6 +104,7 @@ export function CollectionTree(props: {
             depth={1}
             collapsedIds={collapsedIds}
             onToggle={onToggle}
+            onSelectRequest={onSelectRequest}
           />
         ))}
     </List>
