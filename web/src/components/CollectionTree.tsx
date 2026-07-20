@@ -45,12 +45,18 @@ function TreeNode(props: {
   collapsedIds: Set<string>
   onToggle: (id: string) => void
   onSelectRequest: (item: RequestItemNode) => void
+  selectedRequestItem: RequestItemNode | null
 }) {
-  const { node, id, depth, collapsedIds, onToggle, onSelectRequest } = props
+  const { node, id, depth, collapsedIds, onToggle, onSelectRequest, selectedRequestItem } = props
 
   if (node.type === 'item') {
     return (
-      <ListItemButton sx={{ pl: (depth + 1) * 2 + 4 }} disableRipple onClick={() => onSelectRequest(node)}>
+      <ListItemButton
+        sx={{ pl: (depth + 1) * 2 + 4 }}
+        disableRipple
+        selected={node === selectedRequestItem}
+        onClick={() => onSelectRequest(node)}
+      >
         <ListItemIcon sx={{ minWidth: 32 }}>
           <MethodLabel method={node.method} />
         </ListItemIcon>
@@ -78,6 +84,7 @@ function TreeNode(props: {
             collapsedIds={collapsedIds}
             onToggle={onToggle}
             onSelectRequest={onSelectRequest}
+            selectedRequestItem={selectedRequestItem}
           />
         ))}
     </>
@@ -91,8 +98,10 @@ export function CollectionTree(props: {
   onSelectRequest: (item: RequestItemNode) => void
   onDeleteCollection: (uid: string, name: string) => void
   onRenameCollection: (uid: string, name: string) => void
+  selectedRequestItem: RequestItemNode | null
 }) {
-  const { detail, defaultExpanded, onSelectVariables, onSelectRequest, onDeleteCollection, onRenameCollection } = props
+  const { detail, defaultExpanded, onSelectVariables, onSelectRequest, onDeleteCollection, onRenameCollection, selectedRequestItem } =
+    props
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(
     () => (defaultExpanded ? new Set<string>() : new Set([detail.uid, ...collectNodeIds(detail.uid, detail.items)]))
   )
@@ -189,6 +198,7 @@ export function CollectionTree(props: {
             collapsedIds={collapsedIds}
             onToggle={onToggle}
             onSelectRequest={onSelectRequest}
+            selectedRequestItem={selectedRequestItem}
           />
         ))}
     </List>

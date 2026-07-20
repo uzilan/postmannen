@@ -471,6 +471,7 @@ export default function App() {
                         onSelectRequest={(item) => setDetailContent({ kind: 'request', item })}
                         onDeleteCollection={(uid, name) => setCollectionPendingDelete({ uid, name })}
                         onRenameCollection={handleRenameCollection}
+                        selectedRequestItem={detailContent.kind === 'request' ? detailContent.item : null}
                       />
                     ) : null
                   })}

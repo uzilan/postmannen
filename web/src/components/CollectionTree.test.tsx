@@ -48,20 +48,20 @@ describe('collectNodeIds', () => {
 
 describe('CollectionTree', () => {
   it('starts fully collapsed, showing only the collection name', () => {
-    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} />)
+    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} selectedRequestItem={null} />)
     expect(screen.getByText('Auth API')).toBeInTheDocument()
     expect(screen.queryByText('Users')).not.toBeInTheDocument()
   })
 
   it('expands the collection on click, revealing its top-level folders/items still collapsed', () => {
-    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} />)
+    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} selectedRequestItem={null} />)
     fireEvent.click(screen.getByText('Auth API'))
     expect(screen.getByText('Users')).toBeInTheDocument()
     expect(screen.queryByText('Login')).not.toBeInTheDocument()
   })
 
   it('expands a nested folder on click, revealing its children', () => {
-    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} />)
+    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} selectedRequestItem={null} />)
     fireEvent.click(screen.getByText('Auth API'))
     fireEvent.click(screen.getByText('Users'))
     expect(screen.getByText('Login')).toBeInTheDocument()
@@ -70,14 +70,14 @@ describe('CollectionTree', () => {
 
   it('calls onSelectVariables with the collection variables when the collection row is clicked', () => {
     const onSelectVariables = vi.fn()
-    render(<CollectionTree detail={detail} onSelectVariables={onSelectVariables} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} />)
+    render(<CollectionTree detail={detail} onSelectVariables={onSelectVariables} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} selectedRequestItem={null} />)
     fireEvent.click(screen.getByText('Auth API'))
     expect(onSelectVariables).toHaveBeenCalledWith(detail.variables)
   })
 
   it('calls onSelectRequest with the item node when a request row is clicked', () => {
     const onSelectRequest = vi.fn()
-    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={onSelectRequest} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} />)
+    render(<CollectionTree detail={detail} onSelectVariables={vi.fn()} onSelectRequest={onSelectRequest} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} selectedRequestItem={null} />)
     fireEvent.click(screen.getByText('Auth API'))
     fireEvent.click(screen.getByText('Health Check'))
     expect(onSelectRequest).toHaveBeenCalledWith(healthCheckItem)
@@ -85,7 +85,7 @@ describe('CollectionTree', () => {
 
   it('renders expanded by default when defaultExpanded is true', () => {
     render(
-      <CollectionTree detail={detail} defaultExpanded onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} />
+      <CollectionTree detail={detail} defaultExpanded onSelectVariables={vi.fn()} onSelectRequest={vi.fn()} onDeleteCollection={vi.fn()} onRenameCollection={vi.fn()} selectedRequestItem={null} />
     )
     expect(screen.getByText('Users')).toBeInTheDocument()
   })
@@ -99,6 +99,7 @@ describe('CollectionTree', () => {
         onSelectRequest={vi.fn()}
         onDeleteCollection={onDeleteCollection}
         onRenameCollection={vi.fn()}
+        selectedRequestItem={null}
       />
     )
 
@@ -116,6 +117,7 @@ describe('CollectionTree', () => {
         onSelectRequest={vi.fn()}
         onDeleteCollection={vi.fn()}
         onRenameCollection={vi.fn()}
+        selectedRequestItem={null}
       />
     )
 
@@ -133,6 +135,7 @@ describe('CollectionTree', () => {
         onSelectRequest={vi.fn()}
         onDeleteCollection={vi.fn()}
         onRenameCollection={vi.fn()}
+        selectedRequestItem={null}
       />
     )
 
@@ -150,6 +153,7 @@ describe('CollectionTree', () => {
         onSelectRequest={vi.fn()}
         onDeleteCollection={vi.fn()}
         onRenameCollection={onRenameCollection}
+        selectedRequestItem={null}
       />
     )
 
@@ -171,6 +175,7 @@ describe('CollectionTree', () => {
         onSelectRequest={vi.fn()}
         onDeleteCollection={vi.fn()}
         onRenameCollection={onRenameCollection}
+        selectedRequestItem={null}
       />
     )
 
@@ -192,6 +197,7 @@ describe('CollectionTree', () => {
         onSelectRequest={vi.fn()}
         onDeleteCollection={vi.fn()}
         onRenameCollection={vi.fn()}
+        selectedRequestItem={null}
       />
     )
 
@@ -199,5 +205,22 @@ describe('CollectionTree', () => {
 
     expect(onSelectVariables).not.toHaveBeenCalled()
     expect(screen.queryByText('Users')).not.toBeInTheDocument()
+  })
+
+  it('highlights the selected request item and no other row', () => {
+    render(
+      <CollectionTree
+        detail={detail}
+        defaultExpanded
+        onSelectVariables={vi.fn()}
+        onSelectRequest={vi.fn()}
+        onDeleteCollection={vi.fn()}
+        onRenameCollection={vi.fn()}
+        selectedRequestItem={healthCheckItem}
+      />
+    )
+
+    expect(screen.getByText('Health Check').closest('.MuiListItemButton-root')).toHaveClass('Mui-selected')
+    expect(screen.getByText('Login').closest('.MuiListItemButton-root')).not.toHaveClass('Mui-selected')
   })
 })
