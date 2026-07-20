@@ -1,7 +1,11 @@
 import { Box, Button, IconButton, Table, TableBody, TableCell, TableHead, TableRow, Checkbox, TextField, Typography } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { Fragment, useState } from 'react'
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
+import { Fragment, useEffect, useState } from 'react'
 import type { CollectionNode, CollectionVariable, EnvironmentDetail } from '../api'
+import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 type RequestItemNode = Extract<CollectionNode, { type: 'item' }>
 
@@ -53,6 +57,28 @@ function JsonBody({ text }: { text: string }) {
   )
 }
 
+function SortableColumnHeader({ uid, name }: { uid: string; name: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: uid })
+  return (
+    <TableCell
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Box
+          {...attributes}
+          {...listeners}
+          sx={{ cursor: 'grab', display: 'flex', alignItems: 'center' }}
+          aria-label={`drag column ${name}`}
+        >
+          <DragIndicatorIcon fontSize="small" />
+        </Box>
+        {name}
+      </Box>
+    </TableCell>
+  )
+}
+
 export type DetailContent =
   | { kind: 'none' }
   | { kind: 'loading' }
@@ -76,6 +102,14 @@ export function DetailPanel(props: {
 }) {
   const { content, onValueChange, onEnabledToggle, onAddKey, onDeleteKey } = props
   const [newKey, setNewKey] = useState('')
+  const [columnOrder, setColumnOrder] = useState<string[]>([])
+  const sensors = useSensors(useSensor(PointerSensor))
+
+  const detailUidsKey = content.kind === 'environments' ? content.details.map((d) => d.uid).join(',') : ''
+  useEffect(() => {
+    if (content.kind === 'environments') setColumnOrder(content.details.map((d) => d.uid))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailUidsKey])
 
   if (content.kind === 'none') return null
   if (content.kind === 'loading') return <Typography>Loading...</Typography>
@@ -134,24 +168,41 @@ export function DetailPanel(props: {
   }
 
   const keys = Array.from(new Set(content.details.flatMap((d) => d.values.map((v) => v.key))))
+  const orderedDetails = columnOrder
+    .map((uid) => content.details.find((d) => d.uid === uid))
+    .filter((d): d is EnvironmentDetail => d != null)
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (over == null || active.id === over.id) return
+    setColumnOrder((prev) => {
+      const oldIndex = prev.indexOf(String(active.id))
+      const newIndex = prev.indexOf(String(over.id))
+      return arrayMove(prev, oldIndex, newIndex)
+    })
+  }
 
   return (
     <>
       <Table>
         <TableHead>
-          <TableRow>
-            <TableCell>Key</TableCell>
-            {content.details.map((d) => (
-              <TableCell key={d.uid}>{d.name}</TableCell>
-            ))}
-            <TableCell />
-          </TableRow>
+          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            <TableRow>
+              <TableCell>Key</TableCell>
+              <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
+                {orderedDetails.map((d) => (
+                  <SortableColumnHeader key={d.uid} uid={d.uid} name={d.name} />
+                ))}
+              </SortableContext>
+              <TableCell />
+            </TableRow>
+          </DndContext>
         </TableHead>
         <TableBody>
           {keys.map((key) => (
             <TableRow key={key}>
               <TableCell>{key}</TableCell>
-              {content.details.map((d) => {
+              {orderedDetails.map((d) => {
                 const cell = d.values.find((v) => v.key === key)
                 return (
                   <TableCell key={d.uid}>
