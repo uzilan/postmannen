@@ -1,17 +1,21 @@
 import { Button, IconButton, Table, TableBody, TableCell, TableHead, TableRow, Checkbox, TextField, Typography } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { useState } from 'react'
-import type { CollectionVariable, EnvironmentDetail } from '../api'
+import type { CollectionNode, CollectionVariable, EnvironmentDetail } from '../api'
+
+type RequestItemNode = Extract<CollectionNode, { type: 'item' }>
 
 export type DetailContent =
   | { kind: 'none' }
   | { kind: 'loading' }
   | { kind: 'collectionVariables'; variables: CollectionVariable[] }
   | { kind: 'environments'; details: EnvironmentDetail[] }
+  | { kind: 'request'; item: RequestItemNode }
 
 export function detailContentLabel(content: DetailContent): string | null {
   if (content.kind === 'collectionVariables') return 'Variables'
   if (content.kind === 'environments') return content.details.map((d) => d.name).join(', ')
+  if (content.kind === 'request') return content.item.name
   return null
 }
 
@@ -40,6 +44,34 @@ export function DetailPanel(props: {
           ))}
         </TableBody>
       </Table>
+    )
+  }
+
+  if (content.kind === 'request') {
+    const { item } = content
+    return (
+      <>
+        <Typography>
+          <strong>{item.method}</strong> {item.url}
+        </Typography>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Header</TableCell>
+              <TableCell>Value</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {item.headers.map((h) => (
+              <TableRow key={h.key}>
+                <TableCell>{h.key}</TableCell>
+                <TableCell>{h.value}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <Typography component="pre">{item.body ?? '(no body)'}</Typography>
+      </>
     )
   }
 

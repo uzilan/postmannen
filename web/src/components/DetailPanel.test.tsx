@@ -73,6 +73,42 @@ describe('DetailPanel', () => {
 
     expect(onDeleteKey).toHaveBeenCalledWith('BASE_URL')
   })
+
+  it('renders method, url, headers and body for a request', () => {
+    const content: DetailContent = {
+      kind: 'request',
+      item: {
+        type: 'item',
+        name: 'Login',
+        method: 'POST',
+        url: 'https://auth.example.com/login',
+        headers: [{ key: 'Content-Type', value: 'application/json' }],
+        body: '{"user":"x"}',
+      },
+    }
+    render(<DetailPanel content={content} {...noopProps} />)
+    expect(screen.getByText('POST')).toBeInTheDocument()
+    expect(screen.getByText('https://auth.example.com/login')).toBeInTheDocument()
+    expect(screen.getByText('Content-Type')).toBeInTheDocument()
+    expect(screen.getByText('application/json')).toBeInTheDocument()
+    expect(screen.getByText('{"user":"x"}')).toBeInTheDocument()
+  })
+
+  it('renders a placeholder when a request has no raw body', () => {
+    const content: DetailContent = {
+      kind: 'request',
+      item: {
+        type: 'item',
+        name: 'Health Check',
+        method: 'GET',
+        url: 'https://auth.example.com/health',
+        headers: [],
+        body: null,
+      },
+    }
+    render(<DetailPanel content={content} {...noopProps} />)
+    expect(screen.getByText('(no body)')).toBeInTheDocument()
+  })
 })
 
 describe('detailContentLabel', () => {
@@ -94,5 +130,13 @@ describe('detailContentLabel', () => {
       ],
     }
     expect(detailContentLabel(content)).toBe('Staging, Production')
+  })
+
+  it('returns the request name for a request', () => {
+    const content = {
+      kind: 'request' as const,
+      item: { type: 'item' as const, name: 'Login', method: 'POST', url: 'x', headers: [], body: null },
+    }
+    expect(detailContentLabel(content)).toBe('Login')
   })
 })
