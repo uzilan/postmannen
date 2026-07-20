@@ -32,6 +32,8 @@ class FakePostmanApiService : PostmanApiService {
     var createCollectionResult: Result<Collection> = Result.success(Collection(id = "col-new", name = "New Collection", uid = "col-new-uid"))
     var lastCreatedCollectionName: String? = null
     var lastCreatedCollectionWorkspaceId: String? = null
+    var deleteCollectionResult: Result<Unit> = Result.success(Unit)
+    var lastDeletedCollectionUid: String? = null
     val invalidateWorkspaceCalls: MutableList<String> = mutableListOf()
 
     override suspend fun getWorkspaces(): Result<List<Workspace>> = workspacesResult
@@ -69,6 +71,11 @@ class FakePostmanApiService : PostmanApiService {
         lastCreatedCollectionWorkspaceId = workspaceId
         lastCreatedCollectionName = name
         return createCollectionResult
+    }
+
+    override suspend fun deleteCollection(uid: String): Result<Unit> {
+        lastDeletedCollectionUid = uid
+        return deleteCollectionResult
     }
 
     override fun invalidateWorkspace(workspaceId: String) {

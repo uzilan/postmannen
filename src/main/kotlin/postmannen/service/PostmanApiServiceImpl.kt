@@ -6,6 +6,7 @@ import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -137,6 +138,10 @@ class PostmanApiServiceImpl(
             )
         }.body()
         Collection(id = response.collection.id, name = response.collection.name, uid = response.collection.uid)
+    }
+
+    override suspend fun deleteCollection(uid: String): Result<Unit> = runCatching {
+        client.delete { url { appendPathSegments("collections", uid) } }
     }
 
     companion object {

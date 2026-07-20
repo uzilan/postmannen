@@ -29,6 +29,8 @@ private class CountingPostmanApiService(private val delegate: PostmanApiService)
     override suspend fun updateEnvironment(detail: EnvironmentDetail) = delegate.updateEnvironment(detail)
     override suspend fun createEnvironment(workspaceId: String, name: String) = delegate.createEnvironment(workspaceId, name)
     override suspend fun createCollection(workspaceId: String, name: String) = delegate.createCollection(workspaceId, name)
+    val deleteCollectionCalls = mutableListOf<String>()
+    override suspend fun deleteCollection(uid: String) = delegate.deleteCollection(uid).also { deleteCollectionCalls.add(uid) }
 }
 
 class CachingPostmanApiServiceTest {
@@ -162,5 +164,21 @@ class CachingPostmanApiServiceTest {
     fun `invalidateWorkspace on an unvisited workspace id is a no-op`() = runTest {
         val cache = CachingPostmanApiService(FakePostmanApiService())
         cache.invalidateWorkspace("never-visited")
+    }
+
+    @Test
+    fun `deleteCollection removes the collection from its cached workspace list and clears its detail cache`() = runTest {
+        val counting = CountingPostmanApiService(FakePostmanApiService())
+        val cache = CachingPostmanApiService(counting)
+        cache.getCollections("ws-1")
+        cache.getCollectionDetail("col-1-uid")
+
+        cache.deleteCollection("col-1-uid")
+        val collections = cache.getCollections("ws-1")
+        cache.getCollectionDetail("col-1-uid")
+
+        assertEquals(listOf(FakePostmanApiService.FIXTURE_COLLECTIONS[1]), collections.getOrThrow())
+        assertEquals(listOf("ws-1"), counting.getCollectionsCalls)
+        assertEquals(listOf("col-1-uid", "col-1-uid"), counting.getCollectionDetailCalls)
     }
 }
