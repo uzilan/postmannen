@@ -79,6 +79,16 @@ export async function createEnvironment(workspaceId: string, name: string): Prom
   return response.json()
 }
 
+export async function createCollection(workspaceId: string, name: string): Promise<Collection> {
+  const response = await fetch(`${BASE_URL}/collections`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ workspaceId, name }),
+  })
+  if (!response.ok) throw new Error(`createCollection failed: ${response.status}`)
+  return response.json()
+}
+
 export type ChatMessage =
   | { role: 'user'; text: string }
   | { role: 'assistant'; text: string; toolsUsed: string[]; errored: boolean }
