@@ -3,7 +3,11 @@ package postmannen.server
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
 import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
@@ -44,5 +48,24 @@ class CollectionRoutesTest {
         val response = client.get("/api/collections/does-not-exist")
 
         assertEquals(HttpStatusCode.BadGateway, response.status)
+    }
+
+    @Test
+    fun `POST api-collections creates a new collection`() = testApplication {
+        val fake = FakePostmanApiService()
+        application {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+            routing { collectionRoutes(fake) }
+        }
+        val client = createClient { install(ClientContentNegotiation) { json(Json { ignoreUnknownKeys = true }) } }
+
+        val response = client.post("/api/collections") {
+            contentType(ContentType.Application.Json)
+            setBody(CreateCollectionRequest(workspaceId = "ws-1", name = "New Collection"))
+        }
+
+        assertEquals(HttpStatusCode.Created, response.status)
+        assertEquals("ws-1", fake.lastCreatedCollectionWorkspaceId)
+        assertEquals("New Collection", fake.lastCreatedCollectionName)
     }
 }
