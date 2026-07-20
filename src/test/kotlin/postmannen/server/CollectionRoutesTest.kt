@@ -2,6 +2,7 @@ package postmannen.server
 
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -67,5 +68,20 @@ class CollectionRoutesTest {
         assertEquals(HttpStatusCode.Created, response.status)
         assertEquals("ws-1", fake.lastCreatedCollectionWorkspaceId)
         assertEquals("New Collection", fake.lastCreatedCollectionName)
+    }
+
+    @Test
+    fun `DELETE api-collections-uid deletes the collection`() = testApplication {
+        val fake = FakePostmanApiService()
+        application {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+            routing { collectionRoutes(fake) }
+        }
+        val client = createClient { install(ClientContentNegotiation) { json(Json { ignoreUnknownKeys = true }) } }
+
+        val response = client.delete("/api/collections/col-1-uid")
+
+        assertEquals(HttpStatusCode.NoContent, response.status)
+        assertEquals("col-1-uid", fake.lastDeletedCollectionUid)
     }
 }

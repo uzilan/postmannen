@@ -3,6 +3,7 @@ package postmannen.server
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import kotlinx.serialization.Serializable
@@ -20,5 +21,10 @@ fun Route.collectionRoutes(service: PostmanApiService) {
     post("/api/collections") {
         val request = call.receive<CreateCollectionRequest>()
         call.respondResult(service.createCollection(request.workspaceId, request.name), HttpStatusCode.Created)
+    }
+
+    delete("/api/collections/{uid}") {
+        val uid = call.parameters["uid"]!!
+        call.respondUnitResult(service.deleteCollection(uid))
     }
 }
