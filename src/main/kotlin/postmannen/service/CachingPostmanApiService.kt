@@ -61,6 +61,14 @@ class CachingPostmanApiService(private val delegate: PostmanApiService) : Postma
             collectionDetailCache.remove(uid)
         }
 
+    override suspend fun deleteEnvironment(uid: String): Result<Unit> =
+        delegate.deleteEnvironment(uid).onSuccess {
+            for (workspaceId in environmentsCache.keys) {
+                environmentsCache[workspaceId]?.let { envs -> environmentsCache[workspaceId] = envs.filterNot { it.uid == uid } }
+            }
+            environmentDetailCache.remove(uid)
+        }
+
     override fun invalidateWorkspace(workspaceId: String) {
         val collectionUids = collectionsCache.remove(workspaceId)?.map { it.uid } ?: emptyList()
         val environmentUids = environmentsCache.remove(workspaceId)?.map { it.uid } ?: emptyList()

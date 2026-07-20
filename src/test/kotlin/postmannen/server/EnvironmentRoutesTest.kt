@@ -2,6 +2,7 @@ package postmannen.server
 
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.put
@@ -96,5 +97,17 @@ class EnvironmentRoutesTest {
         assertEquals(HttpStatusCode.Created, response.status)
         assertEquals("ws-1", fake.lastCreatedEnvironmentWorkspaceId)
         assertEquals("New Env", fake.lastCreatedEnvironmentName)
+    }
+
+    @Test
+    fun `DELETE api-environments-uid deletes and returns 204`() = testApplication {
+        val fake = FakePostmanApiService()
+        setup(fake)
+        val client = createClient { install(ClientContentNegotiation) { json(Json { ignoreUnknownKeys = true }) } }
+
+        val response = client.delete("/api/environments/env-1-uid")
+
+        assertEquals(HttpStatusCode.NoContent, response.status)
+        assertEquals("env-1-uid", fake.lastDeletedEnvironmentUid)
     }
 }

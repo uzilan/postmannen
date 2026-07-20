@@ -1,4 +1,5 @@
-import { Checkbox, List, ListItemButton, ListItemText } from '@mui/material'
+import { Checkbox, IconButton, List, ListItemButton, ListItemText } from '@mui/material'
+import DeleteIcon from '@mui/icons-material/Delete'
 import type { Environment } from '../api'
 
 export function EnvironmentList(props: {
@@ -7,8 +8,9 @@ export function EnvironmentList(props: {
   markedIds: Set<string>
   onHighlight: (id: string) => void
   onToggleMark: (id: string) => void
+  onDeleteEnvironment: (uid: string, name: string) => void
 }) {
-  const { environments, highlightedId, markedIds, onHighlight, onToggleMark } = props
+  const { environments, highlightedId, markedIds, onHighlight, onToggleMark, onDeleteEnvironment } = props
 
   return (
     <List>
@@ -17,6 +19,7 @@ export function EnvironmentList(props: {
           key={env.id}
           selected={env.id === highlightedId}
           onClick={() => onHighlight(env.id)}
+          sx={{ '&:hover .delete-environment-button': { opacity: 1 } }}
         >
           <Checkbox
             checked={markedIds.has(env.id)}
@@ -26,6 +29,18 @@ export function EnvironmentList(props: {
             }}
           />
           <ListItemText>{env.name}</ListItemText>
+          <IconButton
+            className="delete-environment-button"
+            aria-label="Delete environment"
+            size="small"
+            sx={{ opacity: 0 }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDeleteEnvironment(env.uid, env.name)
+            }}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
         </ListItemButton>
       ))}
     </List>

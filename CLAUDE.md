@@ -83,7 +83,8 @@ logic lives in the route layer:
   `invalidateWorkspace`, cache-bust equivalent of the old TUI's `r` key).
 - `GET /api/collections/{uid}` (→ folder/request tree + variables).
 - `GET /api/environments?workspaceId=`, `GET /api/environments/{uid}`,
-  `PUT /api/environments/{uid}`, `POST /api/environments`.
+  `PUT /api/environments/{uid}`, `POST /api/environments`,
+  `DELETE /api/environments/{uid}` (mirrors `DELETE /api/collections/{uid}`).
 
 `RouteSupport.kt`'s `respondResult`/`respondUnitResult` map
 `Result<T>`/`Result<Unit>` from the service layer to HTTP responses —
@@ -151,7 +152,14 @@ workspace and detail-panel selection in `App.tsx`'s `handleSendChat`.
   green, POST orange, PUT blue, PATCH purple, DELETE red, unknown
   methods fall back to grey) instead of a generic file icon, with a
   fixed `minWidth` + `mr` so longer method names (`DELETE`) still leave
-  a gap before the request name.
+  a gap before the request name. Both `CollectionTree.tsx`'s root row
+  and `EnvironmentList.tsx`'s rows use the same hover-reveal delete
+  icon pattern — `sx={{ '&:hover .delete-*-button': { opacity: 1 } }}`
+  on the row plus an `IconButton` with `opacity: 0` and `e.stopPropagation()`
+  in its `onClick` so deleting doesn't also trigger the row's own
+  select/expand handler — both go through `App.tsx`'s shared
+  `ConfirmDialog` (`collectionPendingDelete`/`environmentPendingDelete`
+  state) before calling `deleteCollection`/`deleteEnvironment`.
 - **Left panel legend**: both the Collections and Environments tabs
   render inside one shared bordered `<fieldset>`/`<legend>` in `App.tsx`,
   with the legend text switching on `activeTab` — don't duplicate the

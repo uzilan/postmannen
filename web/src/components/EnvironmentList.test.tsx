@@ -18,6 +18,7 @@ describe('EnvironmentList', () => {
         markedIds={new Set()}
         onHighlight={onHighlight}
         onToggleMark={vi.fn()}
+        onDeleteEnvironment={vi.fn()}
       />
     )
     fireEvent.click(screen.getByText('Staging'))
@@ -34,10 +35,29 @@ describe('EnvironmentList', () => {
         markedIds={new Set()}
         onHighlight={onHighlight}
         onToggleMark={onToggleMark}
+        onDeleteEnvironment={vi.fn()}
       />
     )
     fireEvent.click(screen.getAllByRole('checkbox')[0])
     expect(onToggleMark).toHaveBeenCalledWith('env-1')
+    expect(onHighlight).not.toHaveBeenCalled()
+  })
+
+  it('calls onDeleteEnvironment with the environment uid and name when the delete icon is clicked, not onHighlight', () => {
+    const onHighlight = vi.fn()
+    const onDeleteEnvironment = vi.fn()
+    render(
+      <EnvironmentList
+        environments={environments}
+        highlightedId={null}
+        markedIds={new Set()}
+        onHighlight={onHighlight}
+        onToggleMark={vi.fn()}
+        onDeleteEnvironment={onDeleteEnvironment}
+      />
+    )
+    fireEvent.click(screen.getAllByLabelText('Delete environment')[0])
+    expect(onDeleteEnvironment).toHaveBeenCalledWith('env-1-uid', 'Staging')
     expect(onHighlight).not.toHaveBeenCalled()
   })
 })

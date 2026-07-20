@@ -4,6 +4,7 @@ import {
   createCollection,
   createEnvironment,
   deleteCollection,
+  deleteEnvironment,
   getCollectionDetail,
   getCollections,
   getEnvironmentDetail,
@@ -62,6 +63,7 @@ export default function App() {
   const [createCollectionDialogOpen, setCreateCollectionDialogOpen] = useState(false)
   const [newlyCreatedCollectionUid, setNewlyCreatedCollectionUid] = useState<string | null>(null)
   const [collectionPendingDelete, setCollectionPendingDelete] = useState<{ uid: string; name: string } | null>(null)
+  const [environmentPendingDelete, setEnvironmentPendingDelete] = useState<{ uid: string; name: string } | null>(null)
 
   const [{ leftWidth, rightWidth }, setColumnWidths] = useState(loadColumnWidths)
 
@@ -259,6 +261,28 @@ export default function App() {
     }
   }
 
+  const handleDeleteEnvironment = async () => {
+    if (!environmentPendingDelete) return
+    const { uid } = environmentPendingDelete
+    try {
+      await deleteEnvironment(uid)
+      const id = environments.find((e) => e.uid === uid)?.id
+      setEnvironments((prev) => prev.filter((e) => e.uid !== uid))
+      if (id) {
+        setHighlightedEnvironmentId((prev) => (prev === id ? null : prev))
+        setMarkedEnvironmentIds((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      }
+    } catch (e) {
+      setStatusMessage(`Error: ${(e as Error).message}`)
+    } finally {
+      setEnvironmentPendingDelete(null)
+    }
+  }
+
   const handleSendChat = async (text: string) => {
     setChatMessages((prev) => [...prev, { role: 'user', text }])
     setChatSending(true)
@@ -425,6 +449,7 @@ export default function App() {
                         return next
                       })
                     }
+                    onDeleteEnvironment={(uid, name) => setEnvironmentPendingDelete({ uid, name })}
                   />
                 </>
               )}
@@ -480,6 +505,13 @@ export default function App() {
         message={`Delete collection "${collectionPendingDelete?.name}"? This cannot be undone.`}
         onConfirm={handleDeleteCollection}
         onCancel={() => setCollectionPendingDelete(null)}
+      />
+      <ConfirmDialog
+        open={environmentPendingDelete !== null}
+        title="Delete environment"
+        message={`Delete environment "${environmentPendingDelete?.name}"? This cannot be undone.`}
+        onConfirm={handleDeleteEnvironment}
+        onCancel={() => setEnvironmentPendingDelete(null)}
       />
     </Box>
   )

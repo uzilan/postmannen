@@ -99,6 +99,11 @@ export async function deleteCollection(uid: string): Promise<void> {
   if (!response.ok) throw new Error(`deleteCollection failed: ${response.status}`)
 }
 
+export async function deleteEnvironment(uid: string): Promise<void> {
+  const response = await fetch(`${BASE_URL}/environments/${uid}`, { method: 'DELETE' })
+  if (!response.ok) throw new Error(`deleteEnvironment failed: ${response.status}`)
+}
+
 export type ChatMessage =
   | { role: 'user'; text: string }
   | { role: 'assistant'; text: string; toolsUsed: string[]; errored: boolean }

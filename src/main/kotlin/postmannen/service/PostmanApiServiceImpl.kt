@@ -144,6 +144,10 @@ class PostmanApiServiceImpl(
         client.delete { url { appendPathSegments("collections", uid) } }
     }
 
+    override suspend fun deleteEnvironment(uid: String): Result<Unit> = runCatching {
+        client.delete { url { appendPathSegments("environments", uid) } }
+    }
+
     companion object {
         const val BASE_URL = "https://api.getpostman.com"
     }

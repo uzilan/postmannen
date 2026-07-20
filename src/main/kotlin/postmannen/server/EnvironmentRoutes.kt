@@ -5,6 +5,7 @@ import io.ktor.openapi.jsonSchema
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.openapi.describe
 import io.ktor.server.routing.post
@@ -110,6 +111,27 @@ fun Route.environmentRoutes(service: PostmanApiService) {
             HttpStatusCode.Created {
                 description = "The created environment"
                 schema = jsonSchema<EnvironmentDetail>()
+            }
+            HttpStatusCode.BadGateway {
+                description = "The Postman API request failed"
+            }
+        }
+    }
+
+    delete("/api/environments/{uid}") {
+        val uid = call.parameters["uid"]!!
+        call.respondUnitResult(service.deleteEnvironment(uid))
+    }.describe {
+        summary = "Delete an environment"
+        parameters {
+            path("uid") {
+                description = "The environment uid"
+                required = true
+            }
+        }
+        responses {
+            HttpStatusCode.NoContent {
+                description = "The environment was deleted"
             }
             HttpStatusCode.BadGateway {
                 description = "The Postman API request failed"
