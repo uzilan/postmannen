@@ -1,9 +1,13 @@
 package postmannen.server
 
+import io.ktor.http.HttpStatusCode
+import io.ktor.openapi.jsonSchema
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.openapi.describe
 import io.ktor.server.routing.post
+import io.ktor.utils.io.ExperimentalKtorApi
 import kotlinx.serialization.Serializable
 import postmannen.service.ClaudeCliService
 
@@ -29,6 +33,7 @@ data class ChatResponse(
     val sessionId: String?
 )
 
+@OptIn(ExperimentalKtorApi::class)
 fun Route.chatRoutes(service: ClaudeCliService) {
     post("/api/chat") {
         val request = call.receive<ChatRequest>()
@@ -42,6 +47,19 @@ fun Route.chatRoutes(service: ClaudeCliService) {
                 sessionId = result.sessionId
             )
         )
+    }.describe {
+        summary = "Send a chat message"
+        description = "Shells out to the claude CLI, scoped to Postman MCP tools only"
+        requestBody {
+            description = "The chat prompt, optional session id to resume, and workspace/selection context"
+            schema = jsonSchema<ChatRequest>()
+        }
+        responses {
+            HttpStatusCode.OK {
+                description = "The assistant's reply"
+                schema = jsonSchema<ChatResponse>()
+            }
+        }
     }
 }
 
