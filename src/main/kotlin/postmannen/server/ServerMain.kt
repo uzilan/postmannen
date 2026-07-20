@@ -5,7 +5,7 @@ import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.server.plugins.openapi.openAPI
+import io.ktor.server.plugins.swagger.swaggerUI
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.openapi.OpenApiDocSource
 import io.ktor.server.routing.routing
@@ -18,7 +18,7 @@ import kotlin.system.exitProcess
 
 @OptIn(ExperimentalKtorApi::class)
 fun Route.registerOpenApi() {
-    openAPI(path = "openapi") {
+    swaggerUI(path = "openapi") {
         source = OpenApiDocSource.Routing()
     }
 }
