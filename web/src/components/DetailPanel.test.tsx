@@ -8,6 +8,7 @@ const noopProps = {
   onEnabledToggle: vi.fn(),
   onAddKey: vi.fn(),
   onDeleteKey: vi.fn(),
+  onRenameKey: vi.fn(),
 }
 
 describe('DetailPanel', () => {
@@ -72,6 +73,21 @@ describe('DetailPanel', () => {
     fireEvent.click(screen.getByLabelText('delete row BASE_URL'))
 
     expect(onDeleteKey).toHaveBeenCalledWith('BASE_URL')
+  })
+
+  it('calls onRenameKey with old and new key when the key cell is edited', () => {
+    const onRenameKey = vi.fn()
+    const content: DetailContent = {
+      kind: 'environments',
+      details: [{ id: 'env-1', uid: 'env-1-uid', name: 'Staging', values: [{ key: 'BASE_URL', value: 'https://staging', enabled: true, type: 'default' }] }],
+    }
+    render(<DetailPanel content={content} {...noopProps} onRenameKey={onRenameKey} />)
+
+    const input = screen.getByDisplayValue('BASE_URL')
+    fireEvent.change(input, { target: { value: 'API_BASE_URL' } })
+    fireEvent.blur(input)
+
+    expect(onRenameKey).toHaveBeenCalledWith('BASE_URL', 'API_BASE_URL')
   })
 
   it('renders method, url, headers and body for a request', () => {

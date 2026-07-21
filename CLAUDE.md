@@ -193,14 +193,18 @@ workspace and detail-panel selection in `App.tsx`'s `handleSendChat`.
   strict JSON) that colors comments/keys/strings/literals/numbers
   VS-Code-dark-style; no syntax-highlighting npm package is installed
   for this.
-- **Add/delete key row is a fan-out**: editing a key across the
+- **Add/delete/rename key row is a fan-out**: editing a key across the
   currently-shown environment set calls `updateEnvironment` once per
   shown environment (`Promise.all` in `App.tsx`'s `handleAddKey`/
-  `handleDeleteKey`) — a single-environment view is just the N=1 case.
-  No rollback-on-partial-failure (unlike the old TUI's
-  `AppViewModel.fanOutKeyUpdate`) — a failed fan-out call surfaces via
-  `statusMessage`, per the "preserve last-known-good data on failure"
-  principle, not a hard requirement to re-add.
+  `handleDeleteKey`/`handleRenameKey`) — a single-environment view is
+  just the N=1 case. Renaming is done inline: the key cell in
+  `DetailPanel.tsx`'s environment grid is a `TextField` (mirroring the
+  value cell) whose `onBlur` fires `onRenameKey(oldKey, newKey)`, which
+  maps each shown detail's `values`, replacing the entry whose
+  `key === oldKey`. No rollback-on-partial-failure (unlike the old
+  TUI's `AppViewModel.fanOutKeyUpdate`) — a failed fan-out call
+  surfaces via `statusMessage`, per the "preserve last-known-good data
+  on failure" principle, not a hard requirement to re-add.
 - **Tab switching clears the right panel**: `App.tsx` resets
   `detailContent` to `{ kind: 'none' }` and clears
   `highlightedEnvironmentId`/`markedEnvironmentIds` in a `useEffect`

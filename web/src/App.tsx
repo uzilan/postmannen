@@ -233,6 +233,21 @@ export default function App() {
     }
   }
 
+  const handleRenameKey = async (oldKey: string, newKey: string) => {
+    if (detailContent.kind !== 'environments') return
+    if (newKey === '' || newKey === oldKey) return
+    const updates = detailContent.details.map((d) => ({
+      ...d,
+      values: d.values.map((v) => (v.key === oldKey ? { ...v, key: newKey } : v)),
+    }))
+    try {
+      await Promise.all(updates.map((u) => updateEnvironment(u.uid, u)))
+      setDetailContent({ kind: 'environments', details: updates })
+    } catch (e) {
+      setStatusMessage(`Error: ${(e as Error).message}`)
+    }
+  }
+
   const handleCreateEnvironment = async (name: string) => {
     if (!selectedWorkspaceId) return
     try {
@@ -554,6 +569,7 @@ export default function App() {
                 onEnabledToggle={handleEnabledToggle}
                 onAddKey={handleAddKey}
                 onDeleteKey={handleDeleteKey}
+                onRenameKey={handleRenameKey}
               />
             </Box>
           </Box>

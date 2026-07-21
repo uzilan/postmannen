@@ -197,8 +197,9 @@ export function DetailPanel(props: {
   onEnabledToggle: (environmentUid: string, key: string) => void
   onAddKey: (key: string) => void
   onDeleteKey: (key: string) => void
+  onRenameKey: (oldKey: string, newKey: string) => void
 }) {
-  const { content, onValueChange, onEnabledToggle, onAddKey, onDeleteKey } = props
+  const { content, onValueChange, onEnabledToggle, onAddKey, onDeleteKey, onRenameKey } = props
   const [addKeyDialogOpen, setAddKeyDialogOpen] = useState(false)
   const [columnOrder, setColumnOrder] = useState<string[]>([])
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({})
@@ -345,7 +346,12 @@ export function DetailPanel(props: {
                   maxWidth: columnWidths[KEY_COLUMN_ID] ?? DEFAULT_KEY_COLUMN_WIDTH,
                 }}
               >
-                {key}
+                <TextField
+                  variant="standard"
+                  fullWidth
+                  defaultValue={key}
+                  onBlur={(e) => onRenameKey(key, e.target.value)}
+                />
               </TableCell>
               {orderedDetails.map((d) => {
                 const cell = d.values.find((v) => v.key === key)
