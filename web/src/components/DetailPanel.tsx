@@ -124,7 +124,10 @@ function ResizableColumnHeader({
 }) {
   const handleResizeStart = useColumnResize(width, onResize)
   return (
-    <TableCell style={{ width, minWidth: width, maxWidth: width, position: 'relative' }}>
+    <TableCell
+      sx={{ position: 'sticky', top: 0, zIndex: 2, bgcolor: 'background.paper' }}
+      style={{ width, minWidth: width, maxWidth: width }}
+    >
       {name}
       <ColumnResizeHandle name={name} onMouseDown={handleResizeStart} />
     </TableCell>
@@ -148,6 +151,7 @@ function SortableColumnHeader({
   return (
     <TableCell
       ref={setNodeRef}
+      sx={{ position: 'sticky', top: 0, zIndex: isDragging ? 3 : 2, bgcolor: 'background.paper' }}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
@@ -155,7 +159,6 @@ function SortableColumnHeader({
         width,
         minWidth: width,
         maxWidth: width,
-        position: 'relative',
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -278,7 +281,9 @@ export function DetailPanel(props: {
     )
   }
 
-  const keys = Array.from(new Set(content.details.flatMap((d) => d.values.map((v) => v.key))))
+  const keys = Array.from(new Set(content.details.flatMap((d) => d.values.map((v) => v.key)))).sort((a, b) =>
+    a.localeCompare(b)
+  )
   const orderedDetails = columnOrder
     .map((uid) => content.details.find((d) => d.uid === uid))
     .filter((d): d is EnvironmentDetail => d != null)
@@ -326,7 +331,7 @@ export function DetailPanel(props: {
                   />
                 ))}
               </SortableContext>
-              <TableCell />
+              <TableCell sx={{ position: 'sticky', top: 0, zIndex: 2, bgcolor: 'background.paper' }} />
             </TableRow>
           </DndContext>
         </TableHead>

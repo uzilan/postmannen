@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Keep this file current: after any change that adds/removes a
+feature, route, component, or non-obvious behavior, update the
+relevant section here in the same turn — don't defer it.**
+
 ## What this is
 
 `postmannen` is a Kotlin/Ktor REST API plus a React/TypeScript frontend
