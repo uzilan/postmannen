@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Box, Button, CircularProgress, Typography } from '@mui/material'
+import { Box, Button, CircularProgress, TextField, Typography } from '@mui/material'
 import {
   createCollection,
   createEnvironment,
@@ -59,6 +59,8 @@ export default function App() {
   const [environments, setEnvironments] = useState<Environment[]>([])
   const [highlightedEnvironmentId, setHighlightedEnvironmentId] = useState<string | null>(null)
   const [markedEnvironmentIds, setMarkedEnvironmentIds] = useState<Set<string>>(new Set())
+  const [environmentFilter, setEnvironmentFilter] = useState('')
+  const [collectionFilter, setCollectionFilter] = useState('')
 
   const [detailContent, setDetailContent] = useState<DetailContent>({ kind: 'none' })
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
@@ -82,6 +84,8 @@ export default function App() {
     setDetailContent({ kind: 'none' })
     setHighlightedEnvironmentId(null)
     setMarkedEnvironmentIds(new Set())
+    setEnvironmentFilter('')
+    setCollectionFilter('')
   }, [activeTab])
 
   useEffect(() => {
@@ -467,10 +471,20 @@ export default function App() {
             <Box sx={{ overflow: 'auto', flex: 1 }}>
               {activeTab === 'collections' && (
                 <>
-                  <Button variant="outlined" size="small" onClick={() => setCreateCollectionDialogOpen(true)}>
-                    New Collection
-                  </Button>
-                  {collections.map((c) => {
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <Button variant="outlined" size="small" onClick={() => setCreateCollectionDialogOpen(true)}>
+                      New Collection
+                    </Button>
+                    <TextField
+                      size="small"
+                      placeholder="Filter collections"
+                      value={collectionFilter}
+                      onChange={(e) => setCollectionFilter(e.target.value)}
+                    />
+                  </Box>
+                  {collections
+                    .filter((c) => c.name.toLowerCase().includes(collectionFilter.toLowerCase()))
+                    .map((c) => {
                     const detail = collectionDetails.get(c.uid)
                     return detail ? (
                       <CollectionTree
@@ -490,11 +504,21 @@ export default function App() {
               )}
               {activeTab === 'environments' && (
                 <>
-                  <Button variant="outlined" size="small" onClick={() => setCreateDialogOpen(true)}>
-                    New Environment
-                  </Button>
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <Button variant="outlined" size="small" onClick={() => setCreateDialogOpen(true)}>
+                      New Environment
+                    </Button>
+                    <TextField
+                      size="small"
+                      placeholder="Filter environments"
+                      value={environmentFilter}
+                      onChange={(e) => setEnvironmentFilter(e.target.value)}
+                    />
+                  </Box>
                   <EnvironmentList
-                    environments={environments}
+                    environments={environments.filter((e) =>
+                      e.name.toLowerCase().includes(environmentFilter.toLowerCase())
+                    )}
                     highlightedId={highlightedEnvironmentId}
                     markedIds={markedEnvironmentIds}
                     onHighlight={setHighlightedEnvironmentId}

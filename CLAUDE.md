@@ -164,6 +164,13 @@ workspace and detail-panel selection in `App.tsx`'s `handleSendChat`.
   render inside one shared bordered `<fieldset>`/`<legend>` in `App.tsx`,
   with the legend text switching on `activeTab` — don't duplicate the
   fieldset per tab, just swap the legend string and inner content.
+- **Name filter boxes**: each tab has a `TextField` next to its "New
+  Collection"/"New Environment" button (`collectionFilter`/
+  `environmentFilter` state in `App.tsx`) that does a client-side
+  case-insensitive substring match against `c.name`/`e.name` before
+  rendering — no backend endpoint or query param involved. Both reset
+  to `''` in the same `activeTab`-keyed `useEffect` that already clears
+  `highlightedEnvironmentId`/`markedEnvironmentIds` on tab switch.
 - **Right panel (`DetailPanel.tsx`)** dispatches on a `DetailContent`
   discriminated union (`none`/`loading`/`collectionVariables`/
   `environments`/`request`), mirroring the old Lanterna `DetailContent`
